@@ -53,13 +53,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data, error } = await supabase
+    const { data: mainChannels, error } = await supabase
       .from("youtube_channels")
       .select("*")
       .order("order_index", { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ channels: data || [] });
+
+    // Overlay real-time sync status from YouTube DB
+    if (supabaseYtAdmin && mainChannels && mainChannels.length > 0) {
+      const { data: ytChannels } = await supabaseYtAdmin
+        .from("youtube_channels")
+        .select("channel_id, sync_status, last_sync_at, sync_error, metadata");
+      
+      if (ytChannels) {
+        const ytStatusMap = new Map(ytChannels.map(c => [c.channel_id, c]));
+        mainChannels.forEach((mc: any) => {
+          const ytInfo = ytStatusMap.get(mc.channel_id);
+          if (ytInfo) {
+            mc.sync_status = ytInfo.sync_status;
+            mc.last_sync_at = ytInfo.last_sync_at;
+            mc.sync_error = ytInfo.sync_error;
+            mc.metadata = ytInfo.metadata;
+          }
+        });
+      }
+    }
+
+    return NextResponse.json({ channels: mainChannels || [] });
   } catch (err) {
     return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
@@ -116,9 +137,23 @@ export async function PUT(request: NextRequest) {
 
     if (error) throw error;
 
-    // 2. Sync to YouTube DB if critical fields changed
+    // 2. Sync to YouTube DB and propagate status updates if present
     if (data?.[0]) {
-      await syncToYtDb(data[0].channel_id, data[0].name, data[0].visibility, data[0].hide_shorts);
+      const ytUpdates: any = {
+        channel_id: data[0].channel_id,
+        name: data[0].name,
+        visibility: data[0].visibility,
+        hide_shorts: data[0].hide_shorts
+      };
+      
+      if ('sync_status' in updates) ytUpdates.sync_status = updates.sync_status;
+      if ('metadata' in updates) ytUpdates.metadata = updates.metadata;
+      if ('sync_error' in updates) ytUpdates.sync_error = updates.sync_error;
+      if ('sync_cursor' in updates) ytUpdates.sync_cursor = updates.sync_cursor;
+
+      if (supabaseYtAdmin) {
+        await supabaseYtAdmin.from("youtube_channels").upsert(ytUpdates, { onConflict: 'channel_id' });
+      }
     }
 
     return NextResponse.json({ data });

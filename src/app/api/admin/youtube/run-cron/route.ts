@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { syncYouTubeChannel } from "@/lib/youtube-sync";
+import { supabaseYt } from "@/lib/supabase-yt";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -26,6 +27,23 @@ export async function POST(request: NextRequest) {
       .eq("is_active", true);
 
     if (fetchError) throw fetchError;
+
+    // Overlay real-time sync status from YouTube DB
+    if (supabaseYt && channels && channels.length > 0) {
+      const { data: ytChannels } = await supabaseYt
+        .from("youtube_channels")
+        .select("channel_id, sync_status");
+      
+      if (ytChannels) {
+        const ytStatusMap = new Map(ytChannels.map(c => [c.channel_id, c.sync_status]));
+        channels.forEach((mc: any) => {
+          const ytStatus = ytStatusMap.get(mc.channel_id);
+          if (ytStatus) {
+            mc.sync_status = ytStatus;
+          }
+        });
+      }
+    }
 
     console.log(`[Manual Cron Trigger] Starting automated sync for ${channels?.length || 0} channels`);
     const results = [];

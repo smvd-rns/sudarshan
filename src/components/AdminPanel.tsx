@@ -1947,7 +1947,7 @@ export default function AdminPanel() {
                                 <span className="text-[8px] font-bold text-slate-400">~{Number(meta.totalOnYT).toLocaleString()} on YT</span>
                               )}
                             </div>
-                            {meta.stage === 'deep_scan' && meta.playlistProgress && (
+                             {meta.stage === 'deep_scan' && meta.playlistProgress && (
                               <div className="space-y-0.5">
                                 <div className="flex justify-between text-[8px] font-bold text-indigo-500">
                                   <span>Playlists: {meta.playlistProgress}</span>
@@ -1959,7 +1959,19 @@ export default function AdminPanel() {
                                 </div>
                               </div>
                             )}
-                            {meta.uploadsTotal > 0 && (
+                            {meta.stage === 'uploads' && meta.uploadsTotal > 0 && meta.totalOnYT && (
+                              <div className="space-y-0.5 mt-1">
+                                <div className="flex justify-between text-[8px] font-bold text-indigo-500">
+                                  <span>Videos: {Number(meta.uploadsTotal).toLocaleString()} / {Number(meta.totalOnYT).toLocaleString()}</span>
+                                  <span>{Math.round((meta.uploadsTotal / parseInt(meta.totalOnYT)) * 100)}%</span>
+                                </div>
+                                <div className="h-1 bg-indigo-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-indigo-500 transition-all duration-500 rounded-full"
+                                    style={{ width: `${Math.min(100, (meta.uploadsTotal / parseInt(meta.totalOnYT)) * 100)}%` }} />
+                                </div>
+                              </div>
+                            )}
+                            {meta.uploadsTotal > 0 && meta.stage !== 'uploads' && (
                               <div className="text-[8px] font-bold text-emerald-600">✓ Uploads: {Number(meta.uploadsTotal).toLocaleString()} synced</div>
                             )}
                           </div>
@@ -3391,7 +3403,8 @@ export default function AdminPanel() {
 
   // --- Helper Methods for YT Mgmt ---
   async function fetchYtChannels(silent = false) {
-    if (!silent) setLoadingYt(true);
+    const isSilent = silent || ytChannels.length > 0;
+    if (!isSilent) setLoadingYt(true);
     try {
       const res = await fetch("/api/admin/youtube-channels", {
         headers: { "Authorization": `Bearer ${session?.access_token}` }
@@ -3401,7 +3414,7 @@ export default function AdminPanel() {
     } catch (err) {
       console.error(err);
     } finally {
-      if (!silent) setLoadingYt(false);
+      if (!isSilent) setLoadingYt(false);
     }
   }
 
@@ -3437,10 +3450,44 @@ export default function AdminPanel() {
     if (!channelId && !confirm("Force clear sync status for ALL channels? This will stop all background indicators.")) return;
 
     try {
-      const query = supabase.from("youtube_channels").update({ sync_status: null, metadata: null });
-      if (channelId) query.eq("channel_id", channelId);
-      const { error } = await query;
-      if (error) throw error;
+      if (channelId) {
+        const channelRecord = ytChannels.find(c => c.channel_id === channelId);
+        if (!channelRecord) throw new Error("Channel record not found");
+        
+        const res = await fetch("/api/admin/youtube-channels", {
+          method: "PUT",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`
+          },
+          body: JSON.stringify({ 
+            id: channelRecord.id, 
+            sync_status: null, 
+            metadata: null,
+            sync_error: null,
+            sync_cursor: null
+          })
+        });
+        if (!res.ok) throw new Error("Failed to clear sync status via API");
+      } else {
+        // Reset all channels
+        for (const channel of ytChannels) {
+          await fetch("/api/admin/youtube-channels", {
+            method: "PUT",
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session?.access_token}`
+            },
+            body: JSON.stringify({ 
+              id: channel.id, 
+              sync_status: null, 
+              metadata: null,
+              sync_error: null,
+              sync_cursor: null
+            })
+          });
+        }
+      }
       fetchYtChannels();
     } catch (err: any) {
       alert("Failed to reset status: " + err.message);
@@ -3449,6 +3496,14 @@ export default function AdminPanel() {
 
   async function handleBackgroundSync(channelId: string) {
     if (syncingChannels.has(channelId)) return;
+    
+    const confirmed = window.confirm(
+      "⚠️ Deep Sync Warning\n\n" +
+      "Running a Deep Sync scans ALL historical playlists and videos for this channel, which consumes a significant amount of YouTube API quota.\n\n" +
+      "If the channel is already fully synced, please use the circular arrow (Quick Sync) instead to grab new updates.\n\n" +
+      "Are you sure you want to proceed with a Deep Sync?"
+    );
+    if (!confirmed) return;
     
     setSyncingChannels(prev => new Set(prev).add(channelId));
     
@@ -3585,7 +3640,11 @@ export default function AdminPanel() {
     if (!activeYtChannel?.channel_id) return;
     setIsFetchingYt(true);
     try {
-      const infoRes = await fetch(`/api/youtube?channelId=${activeYtChannel.channel_id}`);
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const infoRes = await fetch(`/api/youtube?channelId=${activeYtChannel.channel_id}`, { headers });
       const data = await infoRes.json();
       if (data.channelTitle) {
         setActiveYtChannel((prev: any) => ({

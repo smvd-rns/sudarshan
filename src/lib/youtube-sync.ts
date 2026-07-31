@@ -128,17 +128,23 @@ async function fetchVideoDurations(videoIds: string[]): Promise<Record<string, n
   return durations;
 }
 
-async function upsertVideosInChunks(videos: any[]) {
+async function upsertVideosInChunks(videos: any[], existingVideoIds: Set<string>) {
   let processed = 0;
   for (let i = 0; i < videos.length; i += UPSERT_CHUNK_SIZE) {
     const chunk = videos.slice(i, i + UPSERT_CHUNK_SIZE);
     
+    // Filter out videos that already exist in the database (or were synced in this run)
+    const newVideosInChunk = chunk.filter(v => !existingVideoIds.has(v.video_id));
+    if (newVideosInChunk.length === 0) {
+      continue;
+    }
+    
     // Fetch durations for this chunk of videos
-    const videoIds = chunk.map(v => v.video_id);
+    const videoIds = newVideosInChunk.map(v => v.video_id);
     const durations = await fetchVideoDurations(videoIds);
     
     // Enrich with duration and accurate is_short status
-    const enrichedChunk = chunk.map(v => {
+    const enrichedChunk = newVideosInChunk.map(v => {
       const duration = durations[v.video_id] !== undefined ? durations[v.video_id] : null;
       
       // Exclude UCZ8S3qwowiFztAQBRTawWfA (Hare Krishna TV)
@@ -166,6 +172,8 @@ async function upsertVideosInChunks(videos: any[]) {
 
     if (upsertError) throw upsertError;
     processed += chunk.length;
+    // Add newly upserted IDs to our set
+    enrichedChunk.forEach(v => existingVideoIds.add(v.video_id));
   }
   return processed;
 }
@@ -178,15 +186,32 @@ export async function syncYouTubeChannel(channelId: string, isIncremental = fals
     process.env.YOUTUBE_API_KEY_FALLBACK
   ].filter(Boolean) as string[];
   if (keys.length === 0) throw new Error("YouTube API Keys missing");
+  if (!supabaseYt) throw new Error("YouTube database client not initialized");
 
-  // 1. Get current sync state from DB
-  const { data: channelData, error: fetchErr } = await supabase
+  // 1. Get current sync state from DB (try YT DB first, fallback to Main DB if missing)
+  let channelData = null;
+  const { data: ytChannelData, error: fetchErr } = await supabaseYt
     .from("youtube_channels")
     .select("sync_cursor, sync_status, metadata")
     .eq("channel_id", channelId)
     .maybeSingle();
 
   if (fetchErr) throw fetchErr;
+
+  if (ytChannelData) {
+    channelData = ytChannelData;
+  } else {
+    // Only query Main DB if it doesn't exist in YT DB yet
+    console.log(`[YouTube Sync] Channel not found in YT DB. Fetching from Main DB...`);
+    const { data: mainChannelData, error: mainFetchErr } = await supabase
+      .from("youtube_channels")
+      .select("sync_cursor, sync_status, metadata")
+      .eq("channel_id", channelId)
+      .maybeSingle();
+    
+    if (mainFetchErr) throw mainFetchErr;
+    channelData = mainChannelData;
+  }
 
   // Metadata tracks our multi-stage progress
   const metadata = (channelData?.metadata as any) || { stage: 'uploads', playlistIndex: 0 };
@@ -195,14 +220,38 @@ export async function syncYouTubeChannel(channelId: string, isIncremental = fals
   console.log(`[YouTube Sync] ${channelId} | Stage: ${currentStage} | Mode: ${isIncremental ? 'Incremental' : 'Full'}`);
 
   // --- SAFETY STEP: Ensure channel exists in the YouTube DB helper table ---
-  const { data: mainChannel } = await supabase.from("youtube_channels").select("name, visibility, hide_shorts").eq("channel_id", channelId).single();
-  if (mainChannel && supabaseYt) {
-    await supabaseYt.from("youtube_channels").upsert({
-      channel_id: channelId,
-      name: mainChannel.name,
-      visibility: mainChannel.visibility,
-      hide_shorts: mainChannel.hide_shorts || false
-    });
+  let channelInfo = null;
+  const { data: existingYtChannel } = await supabaseYt.from("youtube_channels").select("name, visibility, hide_shorts").eq("channel_id", channelId).maybeSingle();
+  if (existingYtChannel) {
+    channelInfo = existingYtChannel;
+  } else {
+    const { data: mainChannel } = await supabase.from("youtube_channels").select("name, visibility, hide_shorts").eq("channel_id", channelId).single();
+    if (mainChannel) {
+      channelInfo = mainChannel;
+      await supabaseYt.from("youtube_channels").upsert({
+        channel_id: channelId,
+        name: mainChannel.name,
+        visibility: mainChannel.visibility,
+        hide_shorts: mainChannel.hide_shorts || false
+      });
+    }
+  }
+
+  if (!channelInfo) throw new Error("Channel details not found in either database");
+
+  // --- PRE-LOAD CACHE: Fetch all existing video IDs from DB to prevent heavy I/O and duplicate processing ---
+  const existingVideoIds = new Set<string>();
+  console.log(`[YouTube Sync] Pre-loading existing video IDs from DB for channel ${channelId}...`);
+  const { data: existingData, error: selectErr } = await supabaseYt
+    .from("yt_videos")
+    .select("video_id")
+    .eq("channel_id", channelId);
+  
+  if (selectErr) {
+    console.error("[YouTube Sync] Failed to fetch existing video IDs:", selectErr);
+  } else if (existingData) {
+    existingData.forEach((v: any) => existingVideoIds.add(v.video_id));
+    console.log(`[YouTube Sync] Pre-loaded ${existingVideoIds.size} existing video IDs.`);
   }
 
   try {
@@ -225,34 +274,47 @@ export async function syncYouTubeChannel(channelId: string, isIncremental = fals
 
     // --- STAGE: UPLOADS ---
     if (currentStage === 'uploads') {
-      do {
-        const playlistUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
-        playlistUrl.searchParams.set("playlistId", uploadsId);
-        playlistUrl.searchParams.set("part", "snippet,contentDetails");
-        playlistUrl.searchParams.set("maxResults", "50");
-        if (nextCursor) playlistUrl.searchParams.set("pageToken", nextCursor);
+      try {
+        do {
+          const playlistUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+          playlistUrl.searchParams.set("playlistId", uploadsId);
+          playlistUrl.searchParams.set("part", "snippet,contentDetails");
+          playlistUrl.searchParams.set("maxResults", "50");
+          if (nextCursor) playlistUrl.searchParams.set("pageToken", nextCursor);
 
-        const { data } = await fetchFromYouTubeWithFallback(playlistUrl);
+          const { data } = await fetchFromYouTubeWithFallback(playlistUrl);
 
-        const videos = (data.items || []).map((v: any) => ({
-          video_id: v.contentDetails.videoId,
-          channel_id: channelId,
-          title: v.snippet.title,
-          description: v.snippet.description,
-          thumbnail_url: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url,
-          published_at: v.contentDetails.videoPublishedAt || v.snippet.publishedAt,
-          kind: 'video',
-          is_short: isShortVideo(v.snippet.title, v.snippet.description),
-          updated_at: new Date().toISOString()
-        })).filter((v: any) => v.video_id);
+          const videos = (data.items || []).map((v: any) => ({
+            video_id: v.contentDetails.videoId,
+            channel_id: channelId,
+            title: v.snippet.title,
+            description: v.snippet.description,
+            thumbnail_url: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url,
+            published_at: v.contentDetails.videoPublishedAt || v.snippet.publishedAt,
+            kind: 'video',
+            is_short: isShortVideo(v.snippet.title, v.snippet.description),
+            updated_at: new Date().toISOString()
+          })).filter((v: any) => v.video_id && v.title !== "Private video" && v.title !== "Deleted video");
 
-        if (videos.length > 0) totalSynced += await upsertVideosInChunks(videos);
-        pagesProcessed++;
-        nextCursor = data.nextPageToken || "";
-        if (pagesProcessed >= maxPages) break;
-      } while (nextCursor);
+          const hasNewVideos = videos.some((v: any) => !existingVideoIds.has(v.video_id));
 
-      hasMore = Boolean(nextCursor);
+          if (videos.length > 0) totalSynced += await upsertVideosInChunks(videos, existingVideoIds);
+          pagesProcessed++;
+          nextCursor = data.nextPageToken || "";
+          if (pagesProcessed >= maxPages) break;
+
+          // Throttling: Add a delay to prevent exhausting Supabase Disk IO budget
+          if (nextCursor) {
+            const throttleTime = hasNewVideos ? 1000 : 100;
+            await new Promise(resolve => setTimeout(resolve, throttleTime));
+          }
+        } while (nextCursor);
+
+        hasMore = Boolean(nextCursor);
+      } catch (upErr: any) {
+        console.warn(`[YouTube Sync] Uploads playlist fetch failed (channel might have 0 public videos):`, upErr.message);
+        hasMore = false;
+      }
       
       // If uploads finished, move to Playlists stage
       if (!hasMore && !isIncremental) {
@@ -265,17 +327,31 @@ export async function syncYouTubeChannel(channelId: string, isIncremental = fals
     else if (currentStage === 'playlists') {
       const playlistsUrl = new URL("https://www.googleapis.com/youtube/v3/playlists");
       playlistsUrl.searchParams.set("channelId", channelId);
-      playlistsUrl.searchParams.set("part", "id,snippet");
+      playlistsUrl.searchParams.set("part", "id,snippet,contentDetails");
       playlistsUrl.searchParams.set("maxResults", "50");
       
       const { data: pData } = await fetchFromYouTubeWithFallback(playlistsUrl);
       const playlists = pData.items || [];
       const idx = metadata.playlistIndex || 0;
 
+      // Save playlist records to database
+      if (playlists.length > 0 && supabaseYt) {
+        const playlistRecords = playlists.map((pl: any) => ({
+          playlist_id: pl.id,
+          channel_id: channelId,
+          title: pl.snippet?.title,
+          thumbnail_url: pl.snippet?.thumbnails?.high?.url || pl.snippet?.thumbnails?.medium?.url,
+          video_count: pl.contentDetails?.itemCount || 0,
+          updated_at: new Date().toISOString()
+        }));
+        await supabaseYt.from("yt_playlists").upsert(playlistRecords, { onConflict: "playlist_id" });
+      }
+
       if (idx < playlists.length) {
         const pl = playlists[idx];
         console.log(`[Deep Sync] Scanning playlist ${idx + 1}/${playlists.length}: ${pl.snippet.title}`);
         
+        let plFetchFailed = false;
         do {
           const itemsUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
           itemsUrl.searchParams.set("playlistId", pl.id);
@@ -283,27 +359,68 @@ export async function syncYouTubeChannel(channelId: string, isIncremental = fals
           itemsUrl.searchParams.set("maxResults", "50");
           if (nextCursor) itemsUrl.searchParams.set("pageToken", nextCursor);
 
-          const { data } = await fetchFromYouTubeWithFallback(itemsUrl);
+          try {
+            const { data } = await fetchFromYouTubeWithFallback(itemsUrl);
 
-          const videos = (data.items || []).map((v: any) => ({
-            video_id: v.contentDetails.videoId,
-            channel_id: channelId,
-            title: v.snippet.title,
-            description: v.snippet.description,
-            published_at: v.contentDetails.videoPublishedAt || v.snippet.publishedAt,
-            kind: 'video', 
-            is_short: isShortVideo(v.snippet.title, v.snippet.description),
-            updated_at: new Date().toISOString()
-          })).filter((v: any) => v.video_id);
+            const videos = (data.items || []).map((v: any) => ({
+              video_id: v.contentDetails.videoId,
+              channel_id: channelId,
+              title: v.snippet.title,
+              description: v.snippet.description,
+              thumbnail_url: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.medium?.url || null,
+              published_at: v.contentDetails.videoPublishedAt || v.snippet.publishedAt,
+              kind: 'video', 
+              is_short: isShortVideo(v.snippet.title, v.snippet.description),
+              updated_at: new Date().toISOString()
+            })).filter((v: any) => v.video_id && v.title !== "Private video" && v.title !== "Deleted video");
 
-          if (videos.length > 0) totalSynced += await upsertVideosInChunks(videos);
-          pagesProcessed++;
-          nextCursor = data.nextPageToken || "";
-          if (pagesProcessed >= maxPages) break;
+            const hasNewVideos = videos.some((v: any) => !existingVideoIds.has(v.video_id));
+
+            // Fallback playlist thumbnail if it is missing or is the generic placeholder
+            if (videos.length > 0 && !nextCursor) {
+              const firstPublicVideo = videos.find((v: any) => v.title !== "Private video" && v.title !== "Deleted video" && v.thumbnail_url);
+              if (firstPublicVideo && firstPublicVideo.thumbnail_url) {
+                (async () => {
+                  try {
+                    const { data: plData } = await supabaseYt
+                      .from("yt_playlists")
+                      .select("thumbnail_url")
+                      .eq("playlist_id", pl.id)
+                      .maybeSingle();
+                      
+                    if (!plData || !plData.thumbnail_url || plData.thumbnail_url.includes("no_thumbnail.jpg")) {
+                      await supabaseYt
+                        .from("yt_playlists")
+                        .update({ thumbnail_url: firstPublicVideo.thumbnail_url })
+                        .eq("playlist_id", pl.id);
+                      console.log(`[Sync] Updated playlist ${pl.id} cover thumbnail with first public video's thumbnail.`);
+                    }
+                  } catch (err) {
+                    console.error("[Sync] Failed to update playlist thumbnail:", err);
+                  }
+                })();
+              }
+            }
+
+            if (videos.length > 0) totalSynced += await upsertVideosInChunks(videos, existingVideoIds);
+            pagesProcessed++;
+            nextCursor = data.nextPageToken || "";
+            if (pagesProcessed >= maxPages) break;
+
+            // Throttling: Add a delay to prevent exhausting Supabase Disk IO budget
+            if (nextCursor) {
+              const throttleTime = hasNewVideos ? 1000 : 100;
+              await new Promise(resolve => setTimeout(resolve, throttleTime));
+            }
+          } catch (plErr: any) {
+            console.error(`[Sync] Failed to fetch playlistItems for playlist ${pl.id} ("${pl.snippet?.title}"):`, plErr.message);
+            plFetchFailed = true;
+            break;
+          }
         } while (nextCursor);
 
         hasMore = true; // Always more until all playlists are done
-        if (!nextCursor) {
+        if (!nextCursor || plFetchFailed) {
           metadata.playlistIndex = idx + 1;
           if (metadata.playlistIndex >= playlists.length) hasMore = false;
         }
@@ -327,13 +444,13 @@ export async function syncYouTubeChannel(channelId: string, isIncremental = fals
       updatePayload.last_sync_at = new Date().toISOString();
     }
 
-    await supabase.from("youtube_channels").update(updatePayload).eq("channel_id", channelId);
+    await supabaseYt.from("youtube_channels").update(updatePayload).eq("channel_id", channelId);
 
     return { success: true, totalSynced, hasMore, nextPageToken: nextCursor, pagesProcessed };
 
   } catch (error: any) {
     console.error(`[Sync Error] ${channelId}:`, error);
-    await supabase.from("youtube_channels").update({ sync_status: 'error', sync_error: error.message }).eq("channel_id", channelId);
+    await supabaseYt.from("youtube_channels").update({ sync_status: 'error', sync_error: error.message }).eq("channel_id", channelId);
     throw error;
   }
 }

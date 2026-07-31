@@ -320,6 +320,8 @@ export async function GET(request: NextRequest) {
             .from("yt_videos")
             .select("*")
             .eq("channel_id", channelId)
+            .neq("title", "Private video")
+            .neq("title", "Deleted video")
             .order("published_at", { ascending: false });
 
           if (type === "live") {
@@ -366,7 +368,7 @@ export async function GET(request: NextRequest) {
     if (playlistId) {
       apiUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
       apiUrl.searchParams.set("playlistId", playlistId);
-      apiUrl.searchParams.set("part", "snippet");
+      apiUrl.searchParams.set("part", "snippet,contentDetails");
     } else if (type === "playlists") {
       apiUrl = new URL("https://www.googleapis.com/youtube/v3/playlists");
       apiUrl.searchParams.set("channelId", channelId!);
@@ -399,7 +401,7 @@ export async function GET(request: NextRequest) {
 
       apiUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
       apiUrl.searchParams.set("playlistId", uploadsId);
-      apiUrl.searchParams.set("part", "snippet");
+      apiUrl.searchParams.set("part", "snippet,contentDetails");
     }
 
     apiUrl.searchParams.set("maxResults", String(maxResults));
@@ -429,6 +431,10 @@ export async function GET(request: NextRequest) {
         }
 
         if (!id) return null;
+
+        // Safeguard: YouTube video IDs are always exactly 11 characters.
+        // If it's not 11 characters, it's a playlistItem ID or malformed (won't play), so we filter it out.
+        if (!isPlaylistTab && id.length !== 11) return null;
 
         const isLiveNow = snippet.liveBroadcastContent === "live" || snippet.liveBroadcastContent === "completed";
         if (type === "live" && !isLiveNow) return null;
