@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
 import {
   SlidersHorizontal, ChevronDown, Check,
   Search, Play, Radio, Film, Layers, ExternalLink,
@@ -59,6 +60,7 @@ export default function YouTubeChannelHub() {
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
   const [activePlaylistName, setActivePlaylistName] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -94,7 +96,10 @@ export default function YouTubeChannelHub() {
   const toggleFavoriteChannel = async (e: React.MouseEvent, channelId: string) => {
     e.stopPropagation();
     
-    const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+    const sessionStr = localStorage.getItem('supabase.auth.token'); // Fallback if no session prop
+    const token = sessionStr ? JSON.parse(sessionStr).access_token : null;
+    
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       window.dispatchEvent(new CustomEvent("show-policy"));
       return;
@@ -179,7 +184,7 @@ export default function YouTubeChannelHub() {
     const fetchChannels = async () => {
       setLoadingChannels(true);
       try {
-        const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -284,8 +289,7 @@ export default function YouTubeChannelHub() {
     setLoadingFavorites(true);
     setLoading(true);
     try {
-      // We need the token for the API
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       const res = await fetch("/api/user/favorites?v=1", {
@@ -523,20 +527,22 @@ export default function YouTubeChannelHub() {
 
   useEffect(() => {
     const performGlobalSearch = async () => {
-      if (!searchQuery.trim()) {
+      if (!activeSearchQuery.trim()) {
         setGlobalResults({ playlists: [], videos: [] });
+        setIsSearchingGlobal(false);
         return;
       }
 
       // Require at least 3 chars when on the home page with no filters
-      if (selectedChannelIds.length === 0 && !activeChannel && searchQuery.length < 3) {
+      if (selectedChannelIds.length === 0 && !activeChannel && activeSearchQuery.length < 3) {
         setGlobalResults({ playlists: [], videos: [] });
+        setIsSearchingGlobal(false);
         return;
       }
 
       setIsSearchingGlobal(true);
       try {
-        const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -547,8 +553,8 @@ export default function YouTubeChannelHub() {
 
         if (activeChannel && selectedChannelIds.length === 0) {
           // Inside a channel: make TWO parallel requests to ensure channel results aren't drowned out by global results
-          const channelUrl = `/api/youtube/search?q=${encodeURIComponent(searchQuery)}&channelId=${activeChannel.channel_id}`;
-          const globalUrl = `/api/youtube/search?q=${encodeURIComponent(searchQuery)}`;
+          const channelUrl = `/api/youtube/search?q=${encodeURIComponent(activeSearchQuery)}&channelId=${activeChannel.channel_id}`;
+          const globalUrl = `/api/youtube/search?q=${encodeURIComponent(activeSearchQuery)}`;
           
           const [channelRes, globalRes] = await Promise.all([
             fetch(channelUrl, { headers }),
@@ -574,7 +580,7 @@ export default function YouTubeChannelHub() {
           }
         } else {
           // Standard search (Home page, or with explicit filters)
-          let url = `/api/youtube/search?q=${encodeURIComponent(searchQuery)}`;
+          let url = `/api/youtube/search?q=${encodeURIComponent(activeSearchQuery)}`;
           if (selectedChannelIds.length > 0) {
             url += `&channelId=${selectedChannelIds.join(',')}`;
           }
@@ -594,9 +600,8 @@ export default function YouTubeChannelHub() {
       }
     };
 
-    const timer = setTimeout(performGlobalSearch, 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery, selectedChannelIds, activeChannel]);
+    performGlobalSearch();
+  }, [activeSearchQuery, selectedChannelIds, activeChannel]);
 
   const playerRef = useRef<HTMLDivElement>(null);
 
@@ -628,7 +633,7 @@ export default function YouTubeChannelHub() {
     if (!isCached && !fetchedVideoMetadata[activeVideoId]) {
       const fetchMetadata = async () => {
         try {
-          const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+          const { data: { session } } = await supabase.auth.getSession();
           const headers: Record<string, string> = {};
           if (session) {
             headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -652,10 +657,10 @@ export default function YouTubeChannelHub() {
 
   const filteredVideos = (() => {
     const localMatches = displayVideos.filter((v: VideoItem) =>
-      v.title.toLowerCase().includes(searchQuery.toLowerCase())
+      v.title.toLowerCase().includes(activeSearchQuery.toLowerCase())
     );
 
-    if (!searchQuery.trim() || !activeChannel) {
+    if (!activeSearchQuery.trim() || !activeChannel) {
       return localMatches;
     }
 
@@ -742,7 +747,7 @@ export default function YouTubeChannelHub() {
     if (!shouldSyncNow) return;
 
     try {
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
       await fetch("/api/user/favorites?v=1", {
@@ -844,25 +849,57 @@ export default function YouTubeChannelHub() {
             <p className="text-xs sm:text-base text-devo-800 font-bold opacity-60 uppercase tracking-[0.2em]">Select a channel or search below</p>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mt-8 sm:mt-12 max-w-4xl mx-auto px-4">
-              {/* Search Bar */}
-              <div className="relative flex-1 group">
+              {/* Search Bar Container */}
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setActiveSearchQuery(searchQuery);
+                }}
+                className="relative flex-1 group"
+              >
                 <div className="absolute inset-0 bg-devo-500/10 blur-2xl rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity" />
-                <div className="relative">
+                <div className="relative flex items-center">
                   <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-devo-400" />
                   <input 
                     type="text"
                     placeholder="Search across wisdom library..."
-                    className="w-full pl-14 pr-6 py-4 sm:py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-bold text-sm sm:text-base shadow-xl focus:border-devo-500 outline-none transition-all placeholder:text-slate-300"
+                    className="w-full pl-14 pr-32 py-4 sm:py-5 bg-white border-2 border-slate-100 rounded-[2rem] font-bold text-sm sm:text-base shadow-xl focus:border-devo-500 outline-none transition-all placeholder:text-slate-300"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (!e.target.value.trim()) {
+                        setActiveSearchQuery("");
+                      }
+                    }}
                   />
-                  {isSearchingGlobal && (
-                    <div className="absolute right-6 top-1/2 -translate-y-1/2">
-                      <Loader2 className="w-5 h-5 animate-spin text-devo-500" />
-                    </div>
-                  )}
+                  
+                  {/* Action Button inside Input container */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    {isSearchingGlobal ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-devo-500 mr-2" />
+                    ) : searchQuery.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setActiveSearchQuery("");
+                        }}
+                        className="p-1 rounded-full hover:bg-slate-100 text-slate-400 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    ) : null}
+                    
+                    <button
+                      type="submit"
+                      disabled={searchQuery.length < 3}
+                      className="px-4 py-2 bg-devo-600 hover:bg-devo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-full text-xs font-black uppercase tracking-widest shadow-md transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      Search
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </form>
 
               {/* Action Group */}
               <div className="flex items-center gap-3">
@@ -951,7 +988,7 @@ export default function YouTubeChannelHub() {
             </div>
           </div>
 
-          {searchQuery ? (
+          {activeSearchQuery ? (
             <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex flex-col sm:flex-row items-center justify-between border-b border-slate-200 pb-6 gap-4">
                   <div className="flex flex-col items-center sm:items-start gap-1">
@@ -962,7 +999,7 @@ export default function YouTubeChannelHub() {
                       </p>
                     )}
                   </div>
-                  <button onClick={() => { setSearchQuery(""); setSelectedChannelIds([]); setGlobalResults({ playlists: [], videos: [] }); }} className="px-6 py-2 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg">Back to Library</button>
+                  <button onClick={() => { setSearchQuery(""); setActiveSearchQuery(""); setSelectedChannelIds([]); setGlobalResults({ playlists: [], videos: [] }); }} className="px-6 py-2 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg">Back to Library</button>
                 </div>
 
                 {isSearchingGlobal && globalResults.playlists.length === 0 && globalResults.videos.length === 0 ? (
