@@ -69,7 +69,9 @@ async function fetchFromYouTubeWithFallback(urlInput: URL | string): Promise<{ r
 }
 
 async function readSavedCursor(channelId: string) {
-  const { data, error } = await supabase
+  if (!supabaseYt) return "";
+  // sync_cursor only exists in the YT DB (after yt_db_channels_migration.sql)
+  const { data, error } = await supabaseYt
     .from("youtube_channels")
     .select("sync_cursor")
     .eq("channel_id", channelId)
@@ -79,15 +81,16 @@ async function readSavedCursor(channelId: string) {
 }
 
 async function saveCursorState(channelId: string, cursor: string | null) {
-  const { error } = await supabase
+  if (!supabaseYt) return;
+  // sync_cursor only exists in the YT DB (after yt_db_channels_migration.sql)
+  const { error } = await supabaseYt
     .from("youtube_channels")
     .update({ sync_cursor: cursor, sync_error: null })
     .eq("channel_id", channelId);
   if (error) {
-    // Keep sync working even before DB migration is applied.
     const msg = String(error.message || "");
     if (error.code === "42703" || msg.includes("sync_cursor")) {
-      console.warn("[YouTube Sync] sync_cursor column missing. Run youtube sync migration to enable persistent resume.");
+      console.warn("[YouTube Sync] sync_cursor column missing in YT DB. Run yt_db_channels_migration.sql.");
       return;
     }
     throw error;
@@ -201,16 +204,20 @@ export async function syncYouTubeChannel(channelId: string, isIncremental = fals
   if (ytChannelData) {
     channelData = ytChannelData;
   } else {
-    // Only query Main DB if it doesn't exist in YT DB yet
-    console.log(`[YouTube Sync] Channel not found in YT DB. Fetching from Main DB...`);
+    // Only query Main DB if channel doesn't exist in YT DB yet.
+    // NOTE: Main DB youtube_channels does NOT have sync_cursor/sync_status/metadata columns.
+    // These columns only exist in the YT DB after running yt_db_channels_migration.sql.
+    // We only fetch what actually exists in Main DB, and treat sync state as fresh.
+    console.log(`[YouTube Sync] Channel not found in YT DB. Fetching base info from Main DB...`);
     const { data: mainChannelData, error: mainFetchErr } = await supabase
       .from("youtube_channels")
-      .select("sync_cursor, sync_status, metadata")
+      .select("channel_id, name")
       .eq("channel_id", channelId)
       .maybeSingle();
     
     if (mainFetchErr) throw mainFetchErr;
-    channelData = mainChannelData;
+    // Treat as blank sync state since Main DB doesn't track sync progress
+    channelData = mainChannelData ? { sync_cursor: null, sync_status: null, metadata: null } : null;
   }
 
   // Metadata tracks our multi-stage progress
