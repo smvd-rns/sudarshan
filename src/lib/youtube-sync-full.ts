@@ -184,7 +184,7 @@ async function fetchAllPlaylistVideos(
       video_id: v.contentDetails?.videoId,
       channel_id: channelId,
       title: v.snippet?.title || "Untitled",
-      description: v.snippet?.description || "",
+      description: null,
       thumbnail_url: v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.medium?.url || null,
       published_at: v.contentDetails?.videoPublishedAt || v.snippet?.publishedAt || null,
       kind: "video",
