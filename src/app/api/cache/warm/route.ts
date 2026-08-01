@@ -60,14 +60,17 @@ export async function GET(request: NextRequest) {
       .select("channel_id, id, name, custom_logo, visibility")
       .eq("is_active", true);
 
-    if (allChannels) {
-      for (const ch of allChannels) {
-        await warmCache(
-          CacheKeys.channelMeta(ch.channel_id),
-          { id: ch.id, name: ch.name, custom_logo: ch.custom_logo, visibility: ch.visibility },
-          7200 // 2hr
-        );
-      }
+    if (allChannels && allChannels.length > 0) {
+      // Run Redis writes in parallel to prevent timeouts
+      await Promise.all(
+        allChannels.map(ch =>
+          warmCache(
+            CacheKeys.channelMeta(ch.channel_id),
+            { id: ch.id, name: ch.name, custom_logo: ch.custom_logo, visibility: ch.visibility },
+            7200 // 2hr
+          )
+        )
+      );
       results.channelMeta = `✅ Warmed (${allChannels.length} channel meta entries)`;
     }
   } catch (err: any) {
