@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseYtAdmin } from "@/lib/supabase-yt";
+import { invalidateCache, CacheKeys } from "@/lib/cache";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -105,10 +106,13 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    // 2. Sync to YouTube DB
+    // Sync to YouTube DB
     if (data?.[0]) {
       await syncToYtDb(data[0].channel_id, data[0].name, data[0].visibility, data[0].hide_shorts);
     }
+
+    // Invalidate channel cache so users see the new channel immediately
+    await invalidateCache(CacheKeys.channelsPublic);
 
     return NextResponse.json({ data });
   } catch (err) {
@@ -137,7 +141,7 @@ export async function PUT(request: NextRequest) {
 
     if (error) throw error;
 
-    // 2. Sync to YouTube DB and propagate status updates if present
+    // Sync to YouTube DB and propagate status updates if present
     if (data?.[0]) {
       const ytUpdates: any = {
         channel_id: data[0].channel_id,
@@ -155,6 +159,12 @@ export async function PUT(request: NextRequest) {
         await supabaseYtAdmin.from("youtube_channels").upsert(ytUpdates, { onConflict: 'channel_id' });
       }
     }
+
+    // Invalidate channel caches so users see updated name/photo/visibility immediately
+    await invalidateCache(
+      CacheKeys.channelsPublic,
+      CacheKeys.channelMeta(data?.[0]?.channel_id ?? "")
+    );
 
     return NextResponse.json({ data });
   } catch (err) {
@@ -185,10 +195,16 @@ export async function DELETE(request: NextRequest) {
 
     if (error) throw error;
 
-    // 2. Delete from YouTube DB
+    // Delete from YouTube DB
     if (channel?.channel_id) {
       await syncToYtDb(channel.channel_id, "", "", false, true);
     }
+
+    // Invalidate channel caches so deleted channel disappears for users immediately
+    await invalidateCache(
+      CacheKeys.channelsPublic,
+      CacheKeys.channelMeta(channel?.channel_id ?? "")
+    );
 
     return NextResponse.json({ message: "Deleted" });
   } catch (err) {

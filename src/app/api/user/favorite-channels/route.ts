@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { getCached, invalidateCache, CacheKeys } from "@/lib/cache";
 
 /**
  * GET: Fetch user's favorite channel IDs
@@ -27,22 +28,25 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // Fetch IDs directly from main DB
-    const { data: favoriteRecords, error: favError } = await supabaseAdmin!
-      .from("user_favorite_channels")
-      .select("channel_id")
-      .eq("user_id", user.id);
+    // GET: Serve favourite channels from Redis cache (1hr TTL, stale-on-error)
+    const favoriteIds = await getCached(
+      CacheKeys.favChannels(user.id),
+      async () => {
+        const { data: favoriteRecords, error: favError } = await supabaseAdmin!
+          .from("user_favorite_channels")
+          .select("channel_id")
+          .eq("user_id", user.id);
 
-    if (favError) {
-      // Log error but handle the case if table doesn't exist yet
-      console.error("Fetch favorites database error:", favError);
-      if (favError.code === "PGRST116" || favError.message?.includes("does not exist")) {
-         return NextResponse.json({ error: "Migration needed: Please run the user_favorite_channels_schema.sql migration.", code: "MIGRATION_NEEDED" }, { status: 404 });
-      }
-      throw favError;
-    }
-
-    const favoriteIds = favoriteRecords.map(f => f.channel_id);
+        if (favError) {
+          if (favError.code === "PGRST116" || favError.message?.includes("does not exist")) {
+            return [];
+          }
+          throw favError;
+        }
+        return (favoriteRecords || []).map((f: any) => f.channel_id);
+      },
+      3600 // 1 hour
+    );
 
     return NextResponse.json({ favoriteIds });
   } catch (error: any) {
@@ -92,7 +96,13 @@ export async function POST(request: NextRequest) {
           .delete()
           .eq("id", existing.id);
         
-        if (delError) throw delError;
+        if (delError) {
+          if (delError.code === "57014" || String(delError.message).includes("timeout")) {
+            return NextResponse.json({ error: "Unable to save right now. Please try again in a few minutes." }, { status: 503 });
+          }
+          throw delError;
+        }
+        await invalidateCache(CacheKeys.favChannels(user.id));
         return NextResponse.json({ action: "removed", channel_id });
       }
       // Already existing, no need to do anything else
@@ -111,7 +121,13 @@ export async function POST(request: NextRequest) {
           channel_id: channel_id
         });
       
-      if (insError) throw insError;
+      if (insError) {
+        if (insError.code === "57014" || String(insError.message).includes("timeout")) {
+          return NextResponse.json({ error: "Unable to save right now. Please try again in a few minutes." }, { status: 503 });
+        }
+        throw insError;
+      }
+      await invalidateCache(CacheKeys.favChannels(user.id));
       return NextResponse.json({ action: "added", channel_id });
     }
   } catch (error: any) {

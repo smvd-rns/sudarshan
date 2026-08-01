@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { supabaseYtAdmin } from "@/lib/supabase-yt";
+import { getCached, invalidateCache, CacheKeys } from "@/lib/cache";
 
 
 /**
@@ -30,20 +31,26 @@ export async function GET(request: NextRequest) {
       }, { status: authError?.message === "Supabase Connection Timeout" ? 504 : 401 });
     }
 
-    // BYPASS RLS: Using supabaseAdmin (Service Role) because RLS auth.uid() 
-    // isn't set on server-side requests using the static anon client.
-    const { data: favorites, error: favError } = await supabaseAdmin!
-      .from("user_favorites")
-      .select("video_id, last_position, duration")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    // GET: Serve Watch Later list from Redis cache (30min TTL, stale-on-error)
+    const favoriteData = await getCached(
+      CacheKeys.watchLater(user.id),
+      async () => {
+        const { data: favorites, error: favError } = await supabaseAdmin!
+          .from("user_favorites")
+          .select("video_id, last_position, duration")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
 
-    if (favError) throw favError;
+        if (favError) throw favError;
+        return favorites;
+      },
+      1800 // 30 minutes
+    );
 
-    const favoriteIds = favorites.map(f => f.video_id);
-    const progressMap = new Map(favorites.map(f => [f.video_id, { 
-      last_position: f.last_position, 
-      duration: f.duration 
+    const favoriteIds = favoriteData.map((f: any) => f.video_id);
+    const progressMap = new Map(favoriteData.map((f: any) => [f.video_id, {
+      last_position: f.last_position,
+      duration: f.duration
     }]));
 
     // Fetch metadata from yt_videos in the dedicated YouTube DB
@@ -55,7 +62,7 @@ export async function GET(request: NextRequest) {
     if (vidError) throw vidError;
 
     // Map database results to the VideoItem shape expected by the frontend
-    const videoMap = new Map(videos.map(v => {
+    const videoMap = new Map(videos.map((v: any) => {
       const progress = progressMap.get(v.video_id);
       return [v.video_id, {
         id: v.video_id,
@@ -71,7 +78,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Sort to match the order of favorites (most recent first)
-    const sortedVideos = favoriteIds.map(id => videoMap.get(id)).filter(Boolean);
+    const sortedVideos = favoriteIds.map((id: string) => videoMap.get(id)).filter(Boolean);
 
     return NextResponse.json({ items: sortedVideos, favoriteIds });
   } catch (error: any) {
@@ -131,7 +138,13 @@ export async function POST(request: NextRequest) {
           .delete()
           .eq("id", existing.id);
         
-        if (delError) throw delError;
+        if (delError) {
+          if (delError.code === "57014" || String(delError.message).includes("timeout")) {
+            return NextResponse.json({ error: "Unable to save right now. Please try again in a few minutes." }, { status: 503 });
+          }
+          throw delError;
+        }
+        await invalidateCache(CacheKeys.watchLater(user.id));
         return NextResponse.json({ action: "removed", video_id });
       }
       
@@ -147,7 +160,13 @@ export async function POST(request: NextRequest) {
         .update(updateData)
         .eq("id", existing.id);
       
-      if (updError) throw updError;
+      if (updError) {
+        if (updError.code === "57014" || String(updError.message).includes("timeout")) {
+          return NextResponse.json({ error: "Unable to save right now. Please try again in a few minutes." }, { status: 503 });
+        }
+        throw updError;
+      }
+      await invalidateCache(CacheKeys.watchLater(user.id));
       return NextResponse.json({ action: "updated", video_id, last_position: validLastPosition ?? null });
       
     } else {
@@ -166,7 +185,13 @@ export async function POST(request: NextRequest) {
           last_watched_at: new Date().toISOString()
         });
       
-      if (insError) throw insError;
+      if (insError) {
+        if (insError.code === "57014" || String(insError.message).includes("timeout")) {
+          return NextResponse.json({ error: "Unable to save right now. Please try again in a few minutes." }, { status: 503 });
+        }
+        throw insError;
+      }
+      await invalidateCache(CacheKeys.watchLater(user.id));
       return NextResponse.json({ action: "added", video_id });
     }
   } catch (error: any) {

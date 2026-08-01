@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { syncYouTubeChannel } from "@/lib/youtube-sync";
 import { supabaseYt } from "@/lib/supabase-yt";
+import { warmCache, CacheKeys } from "@/lib/cache";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -63,6 +64,24 @@ export async function GET(request: NextRequest) {
         console.error(`[Sync All] FAILED: ${channel.name} - ${err.message}`);
         results.push({ channel: channel.name, success: false, error: err.message });
       }
+    }
+
+    // 3. Warm the channel cache in Redis after sync
+    // This ensures the home page channel grid is always fast even if no users visited recently
+    try {
+      const { data: publicChannels } = await supabase
+        .from("youtube_channels")
+        .select("*")
+        .eq("is_active", true)
+        .eq("visibility", "public")
+        .order("order_index", { ascending: true });
+
+      if (publicChannels && publicChannels.length > 0) {
+        await warmCache(CacheKeys.channelsPublic, publicChannels, 86400); // 24hr
+        console.log(`[Sync All] ✅ Channel cache warmed (${publicChannels.length} public channels)`);
+      }
+    } catch (warmErr: any) {
+      console.warn("[Sync All] Channel cache warming failed (non-fatal):", warmErr.message);
     }
 
     return NextResponse.json({

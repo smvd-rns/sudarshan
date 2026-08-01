@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { invalidateCache, CacheKeys } from "@/lib/cache";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -73,6 +74,8 @@ export async function POST(request: NextRequest) {
         .upsert(assignments, { onConflict: 'channel_id,user_id' })
         .select();
       if (error) throw error;
+      // Invalidate assignment cache for all affected users
+      await Promise.all(user_ids.map((uid: string) => invalidateCache(CacheKeys.userAssignments(uid))));
       return NextResponse.json({ data });
     } else {
       const { data, error } = await supabase
@@ -80,6 +83,8 @@ export async function POST(request: NextRequest) {
         .upsert([{ channel_id, user_id }], { onConflict: 'channel_id,user_id' })
         .select();
       if (error) throw error;
+      // Invalidate assignment cache for this user
+      if (user_id) await invalidateCache(CacheKeys.userAssignments(user_id));
       return NextResponse.json({ data });
     }
   } catch (err) {
@@ -98,12 +103,23 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
+    // Fetch the assignment to know which user's cache to invalidate
+    const { data: existing } = await supabase
+      .from("youtube_channel_assignments")
+      .select("user_id")
+      .eq("id", id)
+      .single();
+
     const { error } = await supabase
       .from("youtube_channel_assignments")
       .delete()
       .eq("id", id);
 
     if (error) throw error;
+
+    // Invalidate this user's assignment cache so they lose access immediately
+    if (existing?.user_id) await invalidateCache(CacheKeys.userAssignments(existing.user_id));
+
     return NextResponse.json({ message: "Assignment removed" });
   } catch (err) {
     return NextResponse.json({ error: "Failed to remove assignment" }, { status: 500 });

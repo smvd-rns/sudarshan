@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseYt } from "@/lib/supabase-yt";
 import { redis } from "@/lib/redis";
+import { getCached, CacheKeys } from "@/lib/cache";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -207,13 +208,20 @@ export async function GET(request: NextRequest) {
   try {
     // Step 1: If we have a channelId, get basic info and check privacy
     if (channelId) {
-      // PRIVACY CHECK: Verify if channel is private
-      const { data: channelMeta } = await supabase
-        .from("youtube_channels")
-        .select("id, name, custom_logo, visibility")
-        .eq("channel_id", channelId)
-        .single();
-      
+      // PRIVACY CHECK: Cached (2hr TTL) — channel visibility rarely changes
+      const channelMeta = await getCached(
+        CacheKeys.channelMeta(channelId),
+        async () => {
+          const { data } = await supabase
+            .from("youtube_channels")
+            .select("id, name, custom_logo, visibility")
+            .eq("channel_id", channelId)
+            .single();
+          return data;
+        },
+        7200 // 2 hours
+      );
+
       if (channelMeta) {
         channelTitle = channelMeta.name || "";
         channelLogo = channelMeta.custom_logo || "";
@@ -252,7 +260,9 @@ export async function GET(request: NextRequest) {
     }
 
     const cacheKey = `yt:list:${channelId ?? ""}:${playlistId ?? ""}:${type}:${pageToken}:${maxResults}`;
-    if (redis) {
+    // Live streams must always be real-time — never cache the live tab
+    const isLiveTab = type === "live" && !playlistId;
+    if (redis && !isLiveTab) {
       try {
         const cached = await redis.get(cacheKey);
         if (cached) {
@@ -499,7 +509,8 @@ export async function GET(request: NextRequest) {
       channelLogo,
     };
 
-    if (redis) {
+    // Don't cache live tab — must always be real-time from YouTube API
+    if (redis && !isLiveTab) {
       try {
         await redis.set(cacheKey, listResult, { ex: 1800 }); // Cache for 30 minutes
       } catch (cacheErr) {
