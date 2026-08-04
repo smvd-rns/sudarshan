@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseIdktAdmin } from "../../../../lib/supabaseIdkt";
 
 /**
  * ZK-ADMS COMPATIBILITY LAYER
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (logs.length > 0) {
-        await supabase.from("physical_attendance").insert(logs);
+        await (supabaseIdktAdmin || supabase).from("physical_attendance").insert(logs);
       }
     }
 

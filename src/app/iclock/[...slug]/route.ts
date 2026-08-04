@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseIdktAdmin } from "../../../lib/supabaseIdkt";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       });
 
       if (logs.length > 0) {
-        const { error: insErr } = await supabase.from("physical_attendance").insert(logs);
+        const { error: insErr } = await (supabaseIdktAdmin || supabase).from("physical_attendance").insert(logs);
         if (insErr) {
             console.error(`[ATTENDANCE-DEBUG] DB Error: ${insErr.message}`);
         } else {

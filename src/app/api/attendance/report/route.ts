@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseIdktAdmin } from "../../../../lib/supabaseIdkt";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
     const limit = 1000;
 
     while (hasMoreLogs) {
-      const { data: chunk, error: chunkError } = await supabase
+      const { data: chunk, error: chunkError } = await (supabaseIdktAdmin || supabase)
         .from("physical_attendance")
         .select("*")
         .gte("check_time", `${startDate}T00:00:00Z`)

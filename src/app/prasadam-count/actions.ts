@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { supabaseIdktAdmin } from "../../lib/supabaseIdkt";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +39,7 @@ export async function syncPrasadamCounts(startDate: string, endDate: string) {
     }
 
     // Fetch raw logs for the range
-    let query = supabaseAdmin
+    let query = (supabaseIdktAdmin || supabaseAdmin)
       .from("physical_attendance")
       .select("zk_user_id, check_time, device_sn")
       .gte("check_time", `${startDate}T00:00:00Z`)
