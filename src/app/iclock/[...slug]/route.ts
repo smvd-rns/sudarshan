@@ -1,66 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseIdktAdmin } from "../../../lib/supabaseIdkt";
+import { getCached } from "../../../lib/cache";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Simple in-memory cache with TTL
-type CacheEntry<T> = {
-  data: T;
-  expiry: number;
-};
-
-const machineCache = new Map<string, CacheEntry<any>>();
-const settingsCache: { entry: CacheEntry<any> | null } = { entry: null };
-
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
 async function getCachedMachine(sn: string) {
-  const now = Date.now();
-  const cached = machineCache.get(sn);
-  
-  if (cached && cached.expiry > now) {
-    return cached.data;
+  const cacheKey = `machine:${sn.toUpperCase().trim()}`;
+  try {
+    return await getCached(
+      cacheKey,
+      async () => {
+        const { data: machine, error } = await supabase
+          .from("attendance_machines")
+          .select("is_active, ingestion_start, ingestion_end")
+          .eq("serial_number", sn.toUpperCase().trim())
+          .eq("is_active", true)
+          .single();
+        
+        if (error) throw error;
+        return machine || null;
+      },
+      300 // Cache for 5 minutes
+    );
+  } catch (err) {
+    console.error(`[Redis Machine Cache] Error fetching or storing machine: ${sn}`, err);
+    return null;
   }
-  
-  const { data: machine } = await supabase
-    .from("attendance_machines")
-    .select("is_active, ingestion_start, ingestion_end")
-    .eq("serial_number", sn)
-    .eq("is_active", true)
-    .single();
-    
-  // Cache negative hits for 30s to prevent spam, active machines for 5 minutes
-  const ttl = machine ? CACHE_TTL_MS : 30 * 1000;
-  machineCache.set(sn, {
-    data: machine || null,
-    expiry: now + ttl
-  });
-  
-  return machine || null;
 }
 
 async function getCachedSettings() {
-  const now = Date.now();
-  if (settingsCache.entry && settingsCache.entry.expiry > now) {
-    return settingsCache.entry.data;
+  const cacheKey = `settings:global`;
+  try {
+    return await getCached(
+      cacheKey,
+      async () => {
+        const { data: settings, error } = await supabase
+          .from("attendance_settings")
+          .select("*")
+          .eq("id", "global")
+          .single();
+        
+        if (error) throw error;
+        return settings || null;
+      },
+      300 // Cache for 5 minutes
+    );
+  } catch (err) {
+    console.error("[Redis Settings Cache] Error fetching or storing global settings", err);
+    return null;
   }
-  
-  const { data: settings } = await supabase
-    .from("attendance_settings")
-    .select("*")
-    .eq("id", "global")
-    .single();
-    
-  settingsCache.entry = {
-    data: settings || null,
-    expiry: now + CACHE_TTL_MS
-  };
-  
-  return settings || null;
 }
 
 export async function GET(req: NextRequest) {
