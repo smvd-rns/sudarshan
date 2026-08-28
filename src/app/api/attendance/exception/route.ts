@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromToken } from "@/lib/auth-utils";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -7,12 +8,9 @@ const supabase = createClient(
 );
 
 async function verifySession(req: NextRequest) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-  
-  const token = authHeader.split(" ")[1];
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return null;
+  // Local JWT decode — zero network
+  const user = getUserFromToken(req);
+  if (!user) return null;
   
   const { data: profile } = await supabase
     .from("profiles")

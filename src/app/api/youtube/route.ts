@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseYt } from "@/lib/supabase-yt";
 import { redis } from "@/lib/redis";
 import { getCached, CacheKeys } from "@/lib/cache";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -86,20 +88,14 @@ async function fetchFromYouTubeWithFallback(apiUrl: URL): Promise<{ response: Re
 }
 
 export async function GET(request: NextRequest) {
-  // --- Enforce Authentication ---
-  const authHeader = request.headers.get("Authorization");
-  let userId = null;
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (user && !authError) {
-      userId = user.id;
-    }
-  }
+  // --- Enforce Authentication (local JWT decode — zero network call) ---
+  const user = getUserFromToken(request);
 
-  if (!userId) {
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const userId = user.id;
 
   const { searchParams } = new URL(request.url);
   const videoId = searchParams.get("videoId");
@@ -227,28 +223,37 @@ export async function GET(request: NextRequest) {
         channelLogo = channelMeta.custom_logo || "";
 
         if (channelMeta.visibility === 'private') {
-          const authHeader = request.headers.get("Authorization");
           let hasAccess = false;
           
-          if (authHeader?.startsWith("Bearer ")) {
-            const token = authHeader.split(" ")[1];
-            const { data: { user } } = await supabase.auth.getUser(token);
-            if (user) {
-              const { data: profile } = await supabase.from("profiles").select("role, roles").eq("id", user.id).single();
-              const roles = Array.isArray(profile?.roles) ? profile.roles : [profile?.role].filter(r => r !== null && r !== undefined);
-              const isSuperAdmin = roles.includes(1);
-              
-              if (isSuperAdmin) {
-                hasAccess = true;
-              } else {
-                const { data: assignment } = await supabase
-                  .from("youtube_channel_assignments")
-                  .select("id")
-                  .eq("channel_id", channelMeta.id)
-                  .eq("user_id", user.id)
+          // Local JWT decode — no network call needed
+          const authUser = getUserFromToken(request);
+          if (authUser) {
+            const roleData = await getCached(
+              CacheKeys.userRole(authUser.id),
+              async () => {
+                const { data: profile } = await supabase
+                  .from("profiles")
+                  .select("role, roles")
+                  .eq("id", authUser.id)
                   .single();
-                if (assignment) hasAccess = true;
-              }
+                const roles = Array.isArray(profile?.roles) ? profile.roles : [profile?.role].filter(r => r !== null && r !== undefined);
+                return { roles: roles.map(Number) };
+              },
+              604800 // 7 days cache
+            );
+            
+            const isSuperAdmin = roleData.roles.includes(1);
+            
+            if (isSuperAdmin) {
+              hasAccess = true;
+            } else {
+              const { data: assignment } = await supabase
+                .from("youtube_channel_assignments")
+                .select("id")
+                .eq("channel_id", channelMeta.id)
+                .eq("user_id", authUser.id)
+                .single();
+              if (assignment) hasAccess = true;
             }
           }
           

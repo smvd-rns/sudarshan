@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromToken } from "@/lib/auth-utils";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -6,12 +7,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function verifyAdminOrManager(req: NextRequest) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return null;
-  
-  const token = authHeader.split(" ")[1];
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return null;
+  // Local JWT decode — zero network
+  const user = getUserFromToken(req);
+  if (!user) return null;
 
   const { data: profile } = await supabase
     .from("profiles")

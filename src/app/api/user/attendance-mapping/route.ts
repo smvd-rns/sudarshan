@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user || !user.email) {
+    // Local JWT decode — zero network
+    const user = getUserFromToken(req);
+    if (!user || !user.email) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
@@ -66,15 +62,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user || !user.email) {
+    // Local JWT decode — zero network
+    const user = getUserFromToken(req);
+    if (!user || !user.email) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 

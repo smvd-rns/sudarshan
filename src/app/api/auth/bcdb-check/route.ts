@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { safeQuery } from "@/lib/resilient-db";
 import { getCached, CacheKeys } from "@/lib/cache";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,20 +13,16 @@ const supabase = createClient(
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
+    // Local JWT decode — no network call to Supabase Auth
+    const user = getUserFromToken(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const email = user.email;
     const normalizedEmail = email?.toLowerCase().trim() || "";
     if (!normalizedEmail) return NextResponse.json({ isBcdb: false });
+
 
     // Cache BCDB result for 24 hours — devotee status rarely changes.
     // Stale-on-error means verified users keep access even if DB is temporarily down.
@@ -51,7 +49,7 @@ export async function GET(req: NextRequest) {
       86400 // 24 hours
     );
 
-    // If verified, persist to profile so we don't have to check again on page load
+    // If verified, persist to profile so future loads skip this check
     if (isVerified) {
       try {
         await supabase

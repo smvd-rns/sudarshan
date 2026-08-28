@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { supabaseIdktAdmin } from "@/lib/supabaseIdkt";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 /**
  * GET: Fetch user's "Hear Later" audio tracks with progress
  */
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Local JWT decode — zero network
+    const user = getUserFromToken(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     // 1. Fetch from Main Project (User Favorites + Progress)
@@ -71,16 +67,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Local JWT decode — zero network
+    const user = getUserFromToken(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const { audio_id, last_position, duration, is_update_only } = await request.json();

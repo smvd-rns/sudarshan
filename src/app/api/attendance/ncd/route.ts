@@ -1,11 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseIdktAdmin } from "../../../../lib/supabaseIdkt";
+import { getCached } from "../../../../lib/cache";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+async function getCachedMachine(sn: string) {
+  const cacheKey = `machine:${sn.toUpperCase().trim()}`;
+  try {
+    return await getCached(
+      cacheKey,
+      async () => {
+        const { data: machine, error } = await supabase
+          .from("attendance_machines")
+          .select("is_active, ingestion_start, ingestion_end")
+          .eq("serial_number", sn.toUpperCase().trim())
+          .eq("is_active", true)
+          .single();
+        if (error) throw error;
+        return machine || null;
+      },
+      300 // Cache for 5 minutes
+    );
+  } catch (err) {
+    console.error(`[NCD Cache] Error fetching machine: ${sn}`, err);
+    return null;
+  }
+}
+
+async function getCachedSettings() {
+  const cacheKey = `settings:global`;
+  try {
+    return await getCached(
+      cacheKey,
+      async () => {
+        const { data: settings, error } = await supabase
+          .from("attendance_settings")
+          .select("*")
+          .eq("id", "global")
+          .single();
+        if (error) throw error;
+        return settings || null;
+      },
+      300 // Cache for 5 minutes
+    );
+  } catch (err) {
+    console.error("[NCD Cache] Error fetching global settings", err);
+    return null;
+  }
+}
 
 /**
  * DEDICATED ENDPOINT FOR SECOND MACHINE (NCD8253500015)
@@ -17,12 +63,7 @@ export async function GET(req: NextRequest) {
 
   if (!sn) return new Response("SN_REQUIRED", { status: 400 });
 
-  const { data: machine } = await supabase
-    .from("attendance_machines")
-    .select("is_active, ingestion_start, ingestion_end")
-    .eq("serial_number", sn)
-    .eq("is_active", true)
-    .single();
+  const machine = await getCachedMachine(sn);
 
   if (!machine) {
     return new Response("UNAUTHORIZED_DEVICE", { status: 401 });
@@ -39,22 +80,13 @@ export async function POST(req: NextRequest) {
 
   if (!sn) return new Response("SN_REQUIRED", { status: 400 });
 
-  const { data: machine } = await supabase
-    .from("attendance_machines")
-    .select("is_active, ingestion_start, ingestion_end")
-    .eq("serial_number", sn)
-    .eq("is_active", true)
-    .single();
+  const machine = await getCachedMachine(sn);
 
   if (!machine) {
     return new Response("UNAUTHORIZED_DEVICE", { status: 401 });
   }
 
-  const { data: settings } = await supabase
-    .from("attendance_settings")
-    .select("*")
-    .eq("id", "global")
-    .single();
+  const settings = await getCachedSettings();
 
   const startTime = machine.ingestion_start || "02:00:00";
   const endTime = machine.ingestion_end || "11:00:00";

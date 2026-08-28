@@ -1,31 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { getCached, invalidateCache, CacheKeys } from "@/lib/cache";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 /**
  * GET: Fetch user's favorite channel IDs
  */
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Local JWT decode — zero network
+    const user = getUserFromToken(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    
-    const { data: { user }, error: authError } = await Promise.race([
-      supabase.auth.getUser(token),
-      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Supabase Connection Timeout")), 60000))
-    ]).catch(err => ({ data: { user: null }, error: err }));
-    
-    if (authError || !user) {
-      console.error("Auth Error:", authError);
-      return NextResponse.json({ 
-        error: authError?.message === "Supabase Connection Timeout" 
-          ? "Connection timed out" 
-          : "Invalid session" 
-      }, { status: 401 });
     }
 
     // GET: Serve favourite channels from Redis cache (1hr TTL, stale-on-error)
@@ -60,20 +47,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Local JWT decode — zero network
+    const user = getUserFromToken(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    
-    const { data: { user }, error: authError } = await Promise.race([
-      supabase.auth.getUser(token),
-      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Supabase Connection Timeout")), 60000))
-    ]).catch(err => ({ data: { user: null }, error: err }));
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
     const { channel_id, intent } = await request.json();

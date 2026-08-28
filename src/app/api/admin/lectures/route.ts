@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { getUserFromToken } from "@/lib/auth-utils";
 
 // Helper to check for upload rights (Super Admin or BC Video Uploader)
-async function canUpload(token: string) {
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) return false;
+async function canUpload(request: Request) {
+  // Local JWT decode — zero network call to Supabase Auth
+  const user = getUserFromToken(request);
+  if (!user) return false;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -18,13 +20,7 @@ async function canUpload(token: string) {
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!(await canUpload(token))) {
+    if (!(await canUpload(request))) {
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 
@@ -43,13 +39,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!(await canUpload(token))) {
+    if (!(await canUpload(request))) {
       return NextResponse.json({ error: "Access Denied: Insufficient Role" }, { status: 403 });
     }
 
@@ -93,13 +83,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!(await canUpload(token))) {
+    if (!(await canUpload(request))) {
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 
@@ -124,13 +108,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!(await canUpload(token))) {
+    if (!(await canUpload(request))) {
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 

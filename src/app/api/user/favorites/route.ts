@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { supabaseYtAdmin } from "@/lib/supabase-yt";
 import { getCached, invalidateCache, CacheKeys } from "@/lib/cache";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 
 /**
@@ -9,26 +11,10 @@ import { getCached, invalidateCache, CacheKeys } from "@/lib/cache";
  */
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Local JWT decode — zero network, no timeout needed
+    const user = getUserFromToken(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    
-    // VERIFY with a much longer timeout because the Main DB is extremely busy
-    const { data: { user }, error: authError } = await Promise.race([
-      supabase.auth.getUser(token),
-      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Supabase Connection Timeout")), 60000))
-    ]).catch(err => ({ data: { user: null }, error: err }));
-    
-    if (authError || !user) {
-      console.error("Auth Error/Timeout:", authError);
-      return NextResponse.json({ 
-        error: authError?.message === "Supabase Connection Timeout" 
-          ? "Database connection timed out (60s). The Main DB is extremely busy. Your request might still be processing in the background." 
-          : "Invalid session" 
-      }, { status: authError?.message === "Supabase Connection Timeout" ? 504 : 401 });
     }
 
     // GET: Serve Watch Later list from Redis cache (30min TTL, stale-on-error)
@@ -92,25 +78,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    // Local JWT decode — zero network, no timeout needed
+    const user = getUserFromToken(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    
-    // Use the same 60s timeout for POST to handle extreme DB slowness
-    const { data: { user }, error: authError } = await Promise.race([
-      supabase.auth.getUser(token),
-      new Promise<any>((_, reject) => setTimeout(() => reject(new Error("Supabase Connection Timeout")), 60000))
-    ]).catch(err => ({ data: { user: null }, error: err }));
-    
-    if (authError || !user) {
-      return NextResponse.json({ 
-        error: authError?.message === "Supabase Connection Timeout" 
-          ? "Connection timeout (60s). The DB is extremely busy, but your progress might still be processing. Check back in a minute." 
-          : "Invalid session" 
-      }, { status: authError?.message === "Supabase Connection Timeout" ? 504 : 401 });
     }
 
     const { video_id, last_position, duration, is_update_only, intent } = await request.json();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromToken } from "@/lib/auth-utils";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -7,15 +8,8 @@ const supabase = createClient(
 );
 
 async function getAuthenticatedUser(req: NextRequest) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return null;
-  const token = authHeader.replace("Bearer ", "");
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
-  if (error || !user) return null;
-  return user;
+  // Local JWT decode — zero network call to Supabase Auth
+  return getUserFromToken(req);
 }
 
 async function getAssignedMachineForIncharge(userId: string) {

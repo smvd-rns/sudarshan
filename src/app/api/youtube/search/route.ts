@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase"; // Main DB for auth
 import { supabaseYt } from "@/lib/supabase-yt"; // YouTube DB for search
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -16,29 +18,24 @@ export async function GET(request: NextRequest) {
     console.log(`[Search API] Querying: "${query}" (Channel Filters: ${channelId || "all"})`);
     
     // --- Privacy Filtering Logic (Cross-DB) ---
-    // 1. Get User ID and Role from Main DB
-    const authHeader = request.headers.get("Authorization");
-    let userId = null;
+    // 1. Get User ID and Role from local JWT (zero network call)
+    const authUser = getUserFromToken(request);
+    let userId: string | null = null;
     let isAdmin = false;
     
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      
-      if (user && !authError) {
-        userId = user.id;
-        // Fetch profile with error handling
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role, roles')
-          .eq('id', userId)
-          .single();
+    if (authUser) {
+      userId = authUser.id;
+      // Fetch profile for role check
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, roles')
+        .eq('id', userId)
+        .single();
         
         if (!profileError && profile) {
           const userRoles = Array.isArray(profile.roles) ? profile.roles : [profile.role].filter(r => r !== null);
           isAdmin = userRoles.includes(1);
         }
-      }
     }
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

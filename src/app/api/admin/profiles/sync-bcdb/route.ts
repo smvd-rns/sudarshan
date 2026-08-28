@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromToken } from "@/lib/auth-utils";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -7,15 +8,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // 1. Verify Admin Status
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    // Local JWT decode — zero network call to Supabase Auth
+    const user = getUserFromToken(request);
+    if (!user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
 
     const { data: profile } = await supabase
       .from("profiles")

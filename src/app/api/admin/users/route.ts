@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
-import { safeAuth, safeQuery } from "@/lib/resilient-db";
+import { safeQuery } from "@/lib/resilient-db";
+import { getUserFromToken } from "@/lib/auth-utils";
 
-async function checkManager(token: string) {
-  const { data: { user }, error: authError } = await safeAuth(() => supabase.auth.getUser(token), "Check Admin User");
-  if (authError || !user) return false;
+async function checkManager(req: Request) {
+  const user = getUserFromToken(req);
+  if (!user) return false;
 
-  const { data: profile } = await safeQuery(async () => 
+  const { data: profile } = await safeQuery(async () =>
     await supabase
         .from("profiles")
         .select("role, roles")
@@ -19,11 +20,11 @@ async function checkManager(token: string) {
   return roles.includes(1) || roles.includes(5);
 }
 
-async function checkSuperAdmin(token: string) {
-  const { data: { user }, error: authError } = await safeAuth(() => supabase.auth.getUser(token), "Check Admin User");
-  if (authError || !user) return false;
+async function checkSuperAdmin(req: Request) {
+  const user = getUserFromToken(req);
+  if (!user) return false;
 
-  const { data: profile } = await safeQuery(async () => 
+  const { data: profile } = await safeQuery(async () =>
     await supabase
         .from("profiles")
         .select("role, roles")
@@ -38,13 +39,7 @@ async function checkSuperAdmin(token: string) {
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!(await checkManager(token))) {
+    if (!(await checkManager(request))) {
       return NextResponse.json({ error: "Access Denied: Management Privilege Required" }, { status: 403 });
     }
 
@@ -67,13 +62,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!(await checkSuperAdmin(token))) {
+    if (!(await checkSuperAdmin(request))) {
       return NextResponse.json({ error: "Access Denied: Super Admin Only" }, { status: 403 });
     }
 
@@ -109,13 +98,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    if (!(await checkSuperAdmin(token))) {
+    if (!(await checkSuperAdmin(request))) {
       return NextResponse.json({ error: "Access Denied: Super Admin Only" }, { status: 403 });
     }
 

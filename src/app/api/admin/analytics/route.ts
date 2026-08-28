@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromToken } from "@/lib/auth-utils";
 import { createClient } from "@supabase/supabase-js";
 import { redis } from "@/lib/redis";
 
@@ -12,12 +13,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const targetDate = searchParams.get("date"); // YYYY-MM-DD format
 
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    // 1. Verify Admin Status
-    const token = authHeader.split(" ")[1];
-    const { data: { user } } = await supabase.auth.getUser(token);
+    // Local JWT decode — zero network
+    const user = getUserFromToken(request);
     if (!user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
 
     const { data: profile } = await supabase

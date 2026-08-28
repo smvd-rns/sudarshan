@@ -1,33 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase"; // Main DB for auth
 import { supabaseYt } from "@/lib/supabase-yt"; // YouTube DB for queries
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const limit = Math.min(parseInt(searchParams.get("limit") || "15"), 50);
 
   try {
-    // --- Auth Check ---
-    const authHeader = request.headers.get("Authorization");
-    let userId = null;
+    // --- Auth Check (local JWT decode — zero network) ---
+    const authUser = getUserFromToken(request);
+    let userId: string | null = null;
     let isAdmin = false;
 
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authUser) {
+      userId = authUser.id;
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, roles')
+        .eq('id', userId)
+        .single();
 
-      if (user && !authError) {
-        userId = user.id;
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role, roles')
-          .eq('id', userId)
-          .single();
-
-        if (!profileError && profile) {
-          const userRoles = Array.isArray(profile.roles) ? profile.roles : [profile.role].filter(r => r !== null);
-          isAdmin = userRoles.includes(1);
-        }
+      if (!profileError && profile) {
+        const userRoles = Array.isArray(profile.roles) ? profile.roles : [profile.role].filter(r => r !== null);
+        isAdmin = userRoles.includes(1);
       }
     }
 

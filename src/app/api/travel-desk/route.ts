@@ -2,22 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { safeAuth, safeQuery } from "@/lib/resilient-db";
 import { sendPushToUsers, notifyManagers } from "@/lib/notifications";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 
 // GET: Fetch submissions (Manager only)
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Auth required" }, { status: 401 });
-
-    const token = authHeader.split(" ")[1];
-    
-    if (!supabaseAdmin) {
-        return NextResponse.json({ error: "Server configuration missing (Admin API)" }, { status: 500 });
-    }
-
-    const { data: { user }, error: authError } = await safeAuth(() => supabase.auth.getUser(token), "Travel Desk GET Auth");
-    if (authError || !user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    // Local JWT decode — zero network call to Supabase Auth
+    const user = getUserFromToken(req);
+    if (!user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
 
     // Fetch Role (Use supabaseAdmin to ensure we can see the user's role regardless of RLS)
     const { data: profile } = await safeQuery(async () => 
@@ -60,12 +54,9 @@ export async function GET(req: NextRequest) {
 // POST: Submit a form (BCDB users only)
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Auth required" }, { status: 401 });
-
-    const token = authHeader.split(" ")[1];
-    const { data: { user }, error: authError } = await safeAuth(() => supabase.auth.getUser(token), "Travel Desk POST Auth");
-    if (authError || !user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    // Local JWT decode — zero network call to Supabase Auth
+    const user = getUserFromToken(req);
+    if (!user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
 
     const body = await req.json();
     // ... validation logic stays same ...
@@ -127,12 +118,9 @@ export async function POST(req: NextRequest) {
 // PATCH: Update status (Manager only)
 export async function PATCH(req: NextRequest) {
     try {
-      const authHeader = req.headers.get("Authorization");
-      if (!authHeader) return NextResponse.json({ error: "Auth required" }, { status: 401 });
-  
-      const token = authHeader.split(" ")[1];
-      const { data: { user }, error: authError } = await safeAuth(() => supabase.auth.getUser(token), "Travel Desk PATCH Auth");
-      if (authError || !user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      // Local JWT decode — zero network call to Supabase Auth
+      const user = getUserFromToken(req);
+      if (!user) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
   
       if (!supabaseAdmin) return NextResponse.json({ error: "Server configuration missing" }, { status: 500 });
 

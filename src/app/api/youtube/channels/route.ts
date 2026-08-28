@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getCached, CacheKeys } from "@/lib/cache";
+import { getUserFromToken } from "@/lib/auth-utils";
+
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -8,36 +10,32 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET(request: NextRequest) {
   try {
-    // --- Auth: verify token (hits Supabase Auth, not our public DB) ---
-    const authHeader = request.headers.get("Authorization");
+    // Local JWT decode — zero network call to Supabase Auth
+    const authUser = getUserFromToken(request);
     let userId: string | null = null;
     let isSuperAdmin = false;
 
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
-      const { data: { user } } = await supabase.auth.getUser(token);
-      if (user) {
-        userId = user.id;
+    if (authUser) {
+      userId = authUser.id;
 
-        // --- Cache: user role (1hr TTL, stale-on-error) ---
-        const roleData = await getCached(
-          CacheKeys.userRole(userId),
-          async () => {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("role, roles")
-              .eq("id", userId!)
-              .single();
-            const roles = (Array.isArray(profile?.roles) ? profile.roles : [profile?.role])
-              .filter((r: any) => r !== null && r !== undefined)
-              .map(Number);
-            return { roles };
-          },
-          3600 // 1 hour
-        );
+      // --- Cache: user role (1hr TTL, stale-on-error) ---
+      const roleData = await getCached(
+        CacheKeys.userRole(userId),
+        async () => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, roles")
+            .eq("id", userId!)
+            .single();
+          const roles = (Array.isArray(profile?.roles) ? profile.roles : [profile?.role])
+            .filter((r: any) => r !== null && r !== undefined)
+            .map(Number);
+          return { roles };
+        },
+        604800 // 7 days cache
+      );
 
-        isSuperAdmin = roleData.roles.includes(1);
-      }
+      isSuperAdmin = roleData.roles.includes(1);
     }
 
     if (!userId) {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromToken } from "@/lib/auth-utils";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -8,12 +9,9 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Local JWT decode — zero network call to Supabase Auth
+    const user = getUserFromToken(req);
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // Check Role - Only Super Admin (Role 1)
     const { data: profile } = await supabase

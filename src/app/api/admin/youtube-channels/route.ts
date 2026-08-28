@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromToken } from "@/lib/auth-utils";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseYtAdmin } from "@/lib/supabase-yt";
 import { invalidateCache, CacheKeys } from "@/lib/cache";
@@ -24,12 +25,9 @@ async function syncToYtDb(channelId: string, name: string, visibility: string, h
 }
 
 async function verifyAdminOrManager(req: NextRequest) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
-  
-  const token = authHeader.split(" ")[1];
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return null;
+  // Local JWT decode — zero network call to Supabase Auth
+  const user = getUserFromToken(req);
+  if (!user) return null;
 
   const { data: profile } = await supabase
     .from("profiles")

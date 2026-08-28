@@ -4,6 +4,8 @@ import webpush from "web-push";
 import admin from "@/lib/firebase-admin";
 import { isFcmTokenInvalid } from "@/lib/notifications";
 
+import { getUserFromToken } from "@/lib/auth-utils";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -11,16 +13,9 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
+    // Local JWT decode — zero network call to Supabase Auth
+    const user = getUserFromToken(req);
+    if (!user) {
        return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
