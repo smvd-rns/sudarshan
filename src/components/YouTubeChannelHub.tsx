@@ -1369,9 +1369,6 @@ export default function YouTubeChannelHub() {
                   thumbnail={activeVideo?.thumbnail}
                   initialTime={activeVideo?.lastPosition || 0}
                   onStateChange={(state: number) => {
-                    if (state === -1) setLoading(true);
-                    else setLoading(false);
-                    
                     // 0 is YT.PlayerState.ENDED
                     if (state === 0 && autoplay) {
                       console.log("[Autoplay] Video ended. Searching for next...", { activeVideoId, activeTab, hasPlaylist: !!activePlaylistId });
