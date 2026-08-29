@@ -38,29 +38,11 @@ export default function PersonalAttendancePage() {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  if (initializing || (session && loadingProfile)) {
+  if (initializing || !session || loadingProfile) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
         <p className="text-slate-600 font-black uppercase tracking-widest text-[10px] animate-pulse">Establishing Secure Connection...</p>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-20 h-20 bg-white rounded-[2rem] shadow-xl flex items-center justify-center mb-8 border border-slate-100">
-          <LogIn className="w-10 h-10 text-indigo-600" />
-        </div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-4">Secure Portal</h1>
-        <p className="text-slate-500 font-bold max-w-sm mb-8">Please sign in to access your personal attendance records.</p>
-        <button
-          onClick={() => window.location.href = "/"}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-900 transition-all shadow-lg active:scale-95"
-        >
-          Sign In Now <ArrowRight className="w-4 h-4" />
-        </button>
       </div>
     );
   }

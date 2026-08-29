@@ -126,7 +126,7 @@ function ShortsContent() {
         const headers: Record<string, string> = {
           "Authorization": `Bearer ${session.access_token}`
         };
-        const res = await fetch("/api/youtube/channels?v=1", { headers });
+        const res = await fetch("/api/youtube/channels?v=2", { headers });
         if (res.ok) {
           const data = await res.json();
           const filtered = (data.channels || []).filter((c: any) => c.channel_id !== "UCZ8S3qwowiFztAQBRTawWfA");

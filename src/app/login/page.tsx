@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AuthUI from "@/components/AuthUI";
 import { Loader2 } from "lucide-react";
+import MantraLoader from "@/components/MantraLoader";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,11 +31,7 @@ export default function LoginPage() {
   }, [router]);
 
   if (checking) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <Loader2 className="w-12 h-12 animate-spin text-devo-600" />
-      </div>
-    );
+    return <MantraLoader />;
   }
 
   return (

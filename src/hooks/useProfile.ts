@@ -157,21 +157,30 @@ export function useProfile(session: any) {
     if (session?.user?.id) {
       fetchProfile(session.user.id);
     } else {
+      setProfile(null);
+      setIsBcdb(false);
+      setLastCheckedId(null);
       setLoading(false);
     }
   }, [session?.user?.id, fetchProfile]);
 
-  const uRoles = Array.isArray(profile?.roles) ? profile.roles : [profile?.role].filter(r => r != null);
+  const activeProfile = (profile && profile.id === session?.user?.id) ? profile : null;
+  const activeIsBcdb = (profile && profile.id === session?.user?.id) ? isBcdb : false;
+  const derivedLoading = loading || (!!session?.user?.id && lastCheckedId !== session.user.id);
+
+  const uRoles = Array.isArray(activeProfile?.roles) 
+    ? activeProfile.roles 
+    : [activeProfile?.role].filter(r => r != null);
   
   return { 
-    profile, 
-    isBcdb, 
+    profile: activeProfile, 
+    isBcdb: activeIsBcdb, 
     isSuperAdmin: uRoles.includes(1),
     isManager: uRoles.includes(1) || uRoles.includes(5),
     isAttendanceIncharge: uRoles.includes(1) || uRoles.includes(3),
     isVideoUploader: uRoles.includes(1) || uRoles.includes(2),
     isVmIncharge: uRoles.includes(1) || uRoles.includes(7),
-    loading, 
+    loading: derivedLoading, 
     error, 
     isTimeout,
     refreshProfile: () => session?.user?.id && fetchProfile(session.user.id, true) 

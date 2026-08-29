@@ -283,6 +283,25 @@ export default function YouTubeAdmin() {
                     </label>
                   </div>
                 </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">Or Paste Image URL (Supports Google Drive share links)</label>
+                  <input
+                    type="text"
+                    value={activeItem?.custom_logo || ""}
+                    onChange={e => {
+                      let val = e.target.value.trim();
+                      // Auto-convert Google Drive links to direct public usercontent URLs
+                      const driveMatch = val.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                      if (driveMatch) {
+                        val = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+                      }
+                      setActiveItem(prev => ({ ...prev, custom_logo: val }));
+                    }}
+                    placeholder="https://lh3.googleusercontent.com/d/... or any public image URL"
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">

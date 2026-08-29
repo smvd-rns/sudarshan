@@ -2209,6 +2209,26 @@ export default function AdminPanel() {
                         </div>
                       </div>
                     </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 pl-1">Or Paste Image URL (Supports Google Drive share links)</label>
+                      <input
+                        type="text"
+                        value={activeYtChannel?.custom_logo || ""}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          let val = e.target.value.trim();
+                          // Auto-convert Google Drive links to direct public usercontent URLs
+                          const driveMatch = val.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                          if (driveMatch) {
+                            val = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+                          }
+                          setActiveYtChannel((prev: any) => ({ ...prev, custom_logo: val }));
+                        }}
+                        placeholder="https://lh3.googleusercontent.com/d/... or any public image URL"
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                      />
+                    </div>
+                    
                     <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <input type="checkbox" checked={activeYtChannel?.is_active ?? true} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setActiveYtChannel((prev: any) => ({ ...prev, is_active: e.target.checked }))} className="w-6 h-6 accent-indigo-600 cursor-pointer" />
                       <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Active in Portal</span>

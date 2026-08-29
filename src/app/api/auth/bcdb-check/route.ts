@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         }
         return !!count;
       },
-      86400 // 24 hours
+      604800 // 7 days cache
     );
 
     // If verified, persist to profile so future loads skip this check

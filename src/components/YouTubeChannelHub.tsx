@@ -93,6 +93,9 @@ export default function YouTubeChannelHub() {
   const [contentCache, setContentCache] = useState<Record<string, any>>({});
   const [logoCache, setLogoCache] = useState<Record<string, string>>({});
 
+  const [visibleChannelsCount, setVisibleChannelsCount] = useState(10);
+  const observerRef = useRef<HTMLDivElement | null>(null);
+
   const toggleFavoriteChannel = async (e: React.MouseEvent, channelId: string) => {
     e.stopPropagation();
     
@@ -168,6 +171,11 @@ export default function YouTubeChannelHub() {
   const [fetchedVideoMetadata, setFetchedVideoMetadata] = useState<Record<string, VideoItem>>({});
   const filterRef = useRef<HTMLDivElement>(null);
 
+  // Reset pagination when filter/search changes
+  useEffect(() => {
+    setVisibleChannelsCount(10);
+  }, [selectedChannelIds, activeSearchQuery]);
+
   const fetchedRef = useRef<Set<string>>(new Set());
   const currentTimeRef = useRef<number>(0);
   const currentDurationRef = useRef<number>(0);
@@ -185,16 +193,64 @@ export default function YouTubeChannelHub() {
       setLoadingChannels(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id || "guest";
+        const storageKey = `channels_cache_v3_${userId}`;
+        
+        // 1. Try reading from LocalStorage Cache first
+        try {
+          const rawCache = localStorage.getItem(storageKey);
+          if (rawCache) {
+            const parsed = JSON.parse(rawCache);
+            // 24 hours TTL = 86400000 ms
+            const isFresh = Date.now() - parsed.timestamp < 86400000;
+            if (parsed.channels?.length > 0) {
+              setChannels(parsed.channels);
+              setLoadingChannels(false);
+              
+              // Handle URL query selection from cache immediately
+              const urlChannelId = searchParams.get("channel");
+              const urlPlaylistId = searchParams.get("playlist");
+              const urlVideoId = searchParams.get("v");
+
+              if (urlChannelId) {
+                const found = parsed.channels.find((c: any) => c.channel_id === urlChannelId);
+                if (found) {
+                  setActiveChannel(found);
+                  if (urlPlaylistId) setActivePlaylistId(urlPlaylistId);
+                  if (urlVideoId) setActiveVideoId(urlVideoId);
+                }
+              }
+
+              if (isFresh) {
+                // Cache is still valid (< 24 hours). Skip network fetch completely.
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to read local channels cache:", e);
+        }
+
+        // 2. Fetch from network if cache is stale or missing
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
 
-        // Bypass 308 redirect cache
-        const res = await fetch("/api/youtube/channels?v=1", { headers });
+        const res = await fetch("/api/youtube/channels?v=2", { headers });
         const data = await res.json();
         if (data.channels?.length > 0) {
           setChannels(data.channels);
+          
+          // Save back to LocalStorage with timestamp
+          try {
+            localStorage.setItem(storageKey, JSON.stringify({
+              channels: data.channels,
+              timestamp: Date.now()
+            }));
+          } catch (e) {
+            console.warn("Failed to write local channels cache:", e);
+          }
           
           const urlChannelId = searchParams.get("channel");
           const urlPlaylistId = searchParams.get("playlist");
@@ -210,7 +266,10 @@ export default function YouTubeChannelHub() {
           }
         }
       } catch (err) {
-        setError("Failed to load portal configuration.");
+        // Only show error screen if we don't have cached data to fallback to
+        if (channels.length === 0) {
+          setError("Failed to load portal configuration.");
+        }
       } finally {
         setLoadingChannels(false);
       }
@@ -437,6 +496,27 @@ export default function YouTubeChannelHub() {
     if (!aFav && bFav) return 1;
     return 0;
   });
+
+  const filteredChannelsCount = sortedChannels.filter(c => selectedChannelIds.length === 0 || selectedChannelIds.includes(c.channel_id)).length;
+
+  useEffect(() => {
+    if (activeChannel || activeTab === "favorites") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleChannelsCount((prev) => Math.min(prev + 10, filteredChannelsCount));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [filteredChannelsCount, activeChannel, activeTab]);
 
   const fetchContent = useCallback(async (channel: Channel, tab: string, isLoadMore = false) => {
     if (!channel) return;
@@ -1070,52 +1150,61 @@ export default function YouTubeChannelHub() {
                   </div>
                 ))
               ) : (
-                sortedChannels
-                  .filter(c => selectedChannelIds.length === 0 || selectedChannelIds.includes(c.channel_id))
-                  .map((channel, i) => (
-                  <div 
-                    key={channel.id}
-                    onClick={() => router.push(`${pathname}?channel=${channel.channel_id}`)}
-                    className="group flex flex-col items-center gap-4 animate-in zoom-in duration-700 cursor-pointer relative"
-                    style={{ animationDelay: `${i * 50}ms` }}
-                  >
-                    <div className="relative w-full aspect-[4/5] sm:aspect-[3/4] h-auto rounded-[2rem] sm:rounded-[3rem] overflow-hidden shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:scale-[1.05] active:scale-95 border border-slate-100 bg-slate-100">
-                      {/* Favorite Toggle Button */}
-                      <button
-                        onClick={(e) => toggleFavoriteChannel(e, channel.channel_id)}
-                        className={`absolute top-4 right-4 z-20 p-2.5 rounded-full backdrop-blur-md border shadow-lg transition-all active:scale-90 ${
-                          favoriteChannels.includes(channel.channel_id)
-                            ? "bg-red-500 border-red-400 text-white scale-100"
-                            : "bg-white/70 hover:bg-white border-white/20 text-slate-400 hover:text-red-500 opacity-100 sm:opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
-                        }`}
-                        title={favoriteChannels.includes(channel.channel_id) ? "Remove from favorites" : "Add to favorites"}
-                      >
-                        <Heart className={`w-4 h-4 ${favoriteChannels.includes(channel.channel_id) ? "fill-current" : ""}`} />
-                      </button>
+                <>
+                  {sortedChannels
+                    .filter(c => selectedChannelIds.length === 0 || selectedChannelIds.includes(c.channel_id))
+                    .slice(0, visibleChannelsCount)
+                    .map((channel, i) => (
+                    <div 
+                      key={channel.id}
+                      onClick={() => router.push(`${pathname}?channel=${channel.channel_id}`)}
+                      className="group flex flex-col items-center gap-4 animate-in zoom-in duration-700 cursor-pointer relative"
+                      style={{ animationDelay: `${i * 50}ms` }}
+                    >
+                      <div className="relative w-full aspect-[4/5] sm:aspect-[3/4] h-auto rounded-[2rem] sm:rounded-[3rem] overflow-hidden shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:scale-[1.05] active:scale-95 border border-slate-100 bg-slate-100">
+                        {/* Favorite Toggle Button */}
+                        <button
+                          onClick={(e) => toggleFavoriteChannel(e, channel.channel_id)}
+                          className={`absolute top-4 right-4 z-20 p-2.5 rounded-full backdrop-blur-md border shadow-lg transition-all active:scale-90 ${
+                            favoriteChannels.includes(channel.channel_id)
+                              ? "bg-red-500 border-red-400 text-white scale-100"
+                              : "bg-white/70 hover:bg-white border-white/20 text-slate-400 hover:text-red-500 opacity-100 sm:opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
+                          }`}
+                          title={favoriteChannels.includes(channel.channel_id) ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <Heart className={`w-4 h-4 ${favoriteChannels.includes(channel.channel_id) ? "fill-current" : ""}`} />
+                        </button>
 
-                      {(typeof channel.custom_logo === 'string' && channel.custom_logo) || (typeof logoCache[channel.channel_id] === 'string' && logoCache[channel.channel_id]) ? (
-                        <Image 
-                          src={(typeof channel.custom_logo === 'string' && channel.custom_logo) || logoCache[channel.channel_id]} 
-                          alt={channel.name} 
-                          fill 
-                          className="object-cover group-hover:scale-110 transition-transform duration-700" 
-                          unoptimized 
-                          priority={i < 8}
-                          loading={i < 8 ? "eager" : "lazy"}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-slate-50 flex items-center justify-center">
-                          <Video className="w-12 h-12 text-slate-200" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        {(typeof channel.custom_logo === 'string' && channel.custom_logo) || (typeof logoCache[channel.channel_id] === 'string' && logoCache[channel.channel_id]) ? (
+                          <Image 
+                            src={(typeof channel.custom_logo === 'string' && channel.custom_logo) || logoCache[channel.channel_id]} 
+                            alt={channel.name} 
+                            fill 
+                            className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                            unoptimized 
+                            priority={i < 8}
+                            loading={i < 8 ? "eager" : "lazy"}
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-slate-50 flex items-center justify-center">
+                            <Video className="w-12 h-12 text-slate-200" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      </div>
+                      <div className="text-center space-y-0.5 px-2">
+                         <h2 className="text-[11px] sm:text-[14px] font-black text-devo-950 leading-tight group-hover:text-devo-600 transition-colors uppercase tracking-tight">{channel.name}</h2>
+                         <p className="text-slate-400 font-bold text-[8px] sm:text-[10px] uppercase tracking-widest">{channel.handle}</p>
+                      </div>
                     </div>
-                    <div className="text-center space-y-0.5 px-2">
-                       <h2 className="text-[11px] sm:text-[14px] font-black text-devo-950 leading-tight group-hover:text-devo-600 transition-colors uppercase tracking-tight">{channel.name}</h2>
-                       <p className="text-slate-400 font-bold text-[8px] sm:text-[10px] uppercase tracking-widest">{channel.handle}</p>
+                  ))}
+
+                  {sortedChannels.filter(c => selectedChannelIds.length === 0 || selectedChannelIds.includes(c.channel_id)).length > visibleChannelsCount && (
+                    <div ref={observerRef} className="col-span-full flex items-center justify-center py-10 w-full">
+                      <Loader2 className="w-8 h-8 animate-spin text-devo-500" />
                     </div>
-                  </div>
-                ))
+                  )}
+                </>
               )}
             </div>
           )}

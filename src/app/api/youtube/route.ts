@@ -88,14 +88,10 @@ async function fetchFromYouTubeWithFallback(apiUrl: URL): Promise<{ response: Re
 }
 
 export async function GET(request: NextRequest) {
-  // --- Enforce Authentication (local JWT decode — zero network call) ---
-  const user = getUserFromToken(request);
+  // The YouTube API must be accessible to anonymous users for public channels.
+  // Private channel authorization is explicitly handled below during the channelMeta check.
+  // const user = getUserFromToken(request);
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const userId = user.id;
 
   const { searchParams } = new URL(request.url);
   const videoId = searchParams.get("videoId");

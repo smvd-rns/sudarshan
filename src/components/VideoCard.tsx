@@ -1,5 +1,5 @@
 import { Calendar, User, Pencil, Trash2, X, Loader2, Save, AlertCircle, Heart } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { normalizeDate } from "@/lib/dateHelper";
 
@@ -29,8 +29,13 @@ export default function VideoCard({
   isFavorite?: boolean,
   onToggleFavorite?: (videoId: string) => void
 }) {
-  const [thumbUrl, setThumbUrl] = useState(`https://i.ytimg.com/vi/${lecture.youtube_id}/hqdefault.jpg`);
-  const [hasError, setHasError] = useState(false);
+  const [thumbUrl, setThumbUrl] = useState(`https://i.ytimg.com/vi/${lecture.youtube_id}/maxresdefault.jpg`);
+  const [fallbackStage, setFallbackStage] = useState(0);
+
+  useEffect(() => {
+    setThumbUrl(`https://i.ytimg.com/vi/${lecture.youtube_id}/maxresdefault.jpg`);
+    setFallbackStage(0);
+  }, [lecture.youtube_id]);
   
   // Edit State
   const [isEditing, setIsEditing] = useState(false);
@@ -43,9 +48,15 @@ export default function VideoCard({
   const canEdit = userRole === 1 || userRole === 2;
 
   const handleThumbError = () => {
-    if (!hasError) {
-      setThumbUrl(`https://img.youtube.com/vi/${lecture.youtube_id}/mqdefault.jpg`);
-      setHasError(true);
+    if (fallbackStage === 0) {
+      setThumbUrl(`https://i.ytimg.com/vi/${lecture.youtube_id}/sddefault.jpg`);
+      setFallbackStage(1);
+    } else if (fallbackStage === 1) {
+      setThumbUrl(`https://i.ytimg.com/vi/${lecture.youtube_id}/hqdefault.jpg`);
+      setFallbackStage(2);
+    } else if (fallbackStage === 2) {
+      setThumbUrl(`https://i.ytimg.com/vi/${lecture.youtube_id}/mqdefault.jpg`);
+      setFallbackStage(3);
     }
   };
 

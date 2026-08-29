@@ -23,7 +23,7 @@ export default function PolicyManualPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) {
+  if (!session || loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-devo-600" />
