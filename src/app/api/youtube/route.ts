@@ -22,9 +22,28 @@ interface VideoItem {
 }
 
 function formatRelativeDate(dateStr: string): string {
+  if (!dateStr) return "";
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
+
+  // Handle future dates (upcoming live streams / scheduled classes)
+  if (diffMs < 0) {
+    const absDiffMs = Math.abs(diffMs);
+    const diffMinutes = Math.floor(absDiffMs / (1000 * 60));
+    const diffHours = Math.floor(absDiffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 60) return `Starts in ${diffMinutes} min`;
+    if (diffHours < 24) return `Starts in ${diffHours} hour${diffHours !== 1 ? "s" : ""}`;
+    if (diffDays < 7) {
+      return `Scheduled: ${date.toLocaleDateString("en-IN", { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return `Scheduled: ${date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
+  }
+
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -447,7 +466,7 @@ export async function GET(request: NextRequest) {
         // If it's not 11 characters, it's a playlistItem ID or malformed (won't play), so we filter it out.
         if (!isPlaylistTab && id.length !== 11) return null;
 
-        const isLiveNow = snippet.liveBroadcastContent === "live" || snippet.liveBroadcastContent === "completed";
+        const isLiveNow = snippet.liveBroadcastContent === "live" || snippet.liveBroadcastContent === "completed" || snippet.liveBroadcastContent === "upcoming";
         if (type === "live" && !isLiveNow) return null;
 
         return {

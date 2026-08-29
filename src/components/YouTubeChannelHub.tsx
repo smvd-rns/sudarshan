@@ -522,8 +522,7 @@ export default function YouTubeChannelHub() {
     if (!channel) return;
     const pId = activePlaylistId || "main";
     const cacheKey = `${channel.channel_id}-${tab}-${pId}`;
-    const currentVideosCount = contentCache[channel.channel_id]?.[tab]?.[pId]?.items?.length || 0;
-    if (!isLoadMore && fetchedRef.current.has(cacheKey) && currentVideosCount > 0) return;
+    if (!isLoadMore && fetchedRef.current.has(cacheKey)) return;
 
     if (isLoadMore) setLoadMoreLoading(true);
     else {
