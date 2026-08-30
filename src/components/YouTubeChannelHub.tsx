@@ -805,54 +805,7 @@ export default function YouTubeChannelHub() {
     return null;
   })();
 
-  const handleVideoProgress = useCallback(async (videoId: string, currentTime: number, duration: number) => {
-    if (!videoId) return;
-    
-    // Track locally for immediate favoriting if it's the active one
-    if (videoId === activeVideoId) {
-      currentTimeRef.current = currentTime;
-      currentDurationRef.current = duration;
-    }
-    
-    // Only save to DB if it's in Watch Later
-    if (!favorites.includes(videoId)) return;
-    if (!duration || duration <= 0) return;
 
-    const roundedCurrent = Math.floor(currentTime);
-    const roundedDuration = Math.floor(duration);
-    const previousSynced = lastProgressSyncRef.current[videoId] ?? -1;
-    const isNearEnd = roundedDuration - roundedCurrent <= 3;
-    const shouldSyncNow = previousSynced < 0 || (roundedCurrent - previousSynced >= 10) || isNearEnd;
-    if (!shouldSyncNow) return;
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await fetch("/api/user/favorites?v=1", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}` 
-        },
-        body: JSON.stringify({ 
-          intent: "progress",
-          video_id: videoId, 
-          last_position: roundedCurrent, 
-          duration: roundedDuration,
-          is_update_only: true 
-        })
-      });
-      lastProgressSyncRef.current[videoId] = roundedCurrent;
-      
-      // Update local cache
-      setFavoriteVideos(prev => prev.map(v => 
-        v.id === videoId ? { ...v, lastPosition: roundedCurrent, duration: roundedDuration } : v
-      ));
-    } catch (err) {
-      console.error("Failed to save progress:", err);
-    }
-  }, [activeVideoId, favorites]);
 
   const handleVideoSelect = (vid: VideoItem) => {
     if (vid.type === "playlist") {
@@ -1402,7 +1355,6 @@ export default function YouTubeChannelHub() {
                       }
                     }
                   }}
-                  onProgress={handleVideoProgress}
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-slate-900 px-6 text-center">

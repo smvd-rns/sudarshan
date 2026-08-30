@@ -25,7 +25,6 @@ interface OptimizedVideoPlayerProps {
   thumbnail?: string;
   initialTime?: number;
   onStateChange?: (state: number) => void;
-  onProgress?: (videoId: string, currentTime: number, duration: number) => void;
   className?: string;
 }
 
@@ -37,7 +36,6 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
   thumbnail,
   initialTime = 0,
   onStateChange,
-  onProgress,
   className = ""
 }, ref) => {
   const PLAYER_STATE_PLAYING = 1;
@@ -222,12 +220,6 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
             if (isPlaying) {
               updateMediaSession();
               wasPlayingRef.current = true;
-              if (onProgress && playerInstance.current?.getCurrentTime) {
-                const currentTime = playerInstance.current.getCurrentTime();
-                if (currentTime > 0 || (initialTime === 0 && seekPerformedRef.current)) {
-                  onProgress(videoId, currentTime, playerInstance.current.getDuration());
-                }
-              }
               
               // Fallback seek: if onReady seek didn't work or was skipped, try here once
               if (!seekPerformedRef.current && initialTime > 0) {
@@ -237,13 +229,6 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
             } else if (isPaused) {
               if (!document.hidden) {
                 wasPlayingRef.current = false;
-              }
-              // Save progress immediately on pause
-              if (onProgress && playerInstance.current?.getCurrentTime) {
-                const currentTime = playerInstance.current.getCurrentTime();
-                if (currentTime > 0 || (initialTime === 0 && seekPerformedRef.current)) {
-                  onProgress(videoId, currentTime, playerInstance.current.getDuration());
-                }
               }
             }
           },
@@ -262,13 +247,6 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
     }
 
     return () => {
-      // Final Save on unmount or video change
-      if (onProgress && playerInstance.current?.getCurrentTime) {
-        const currentTime = playerInstance.current.getCurrentTime();
-        if (currentTime > 0 || (initialTime === 0 && seekPerformedRef.current)) {
-          onProgress(videoId, currentTime, playerInstance.current.getDuration());
-        }
-      }
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = null;
       }
@@ -305,28 +283,7 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
     };
   }, []);
 
-  // 5. Progress Tracking
-  useEffect(() => {
-    if (!onProgress || !playerInstance.current || currentState !== PLAYER_STATE_PLAYING) {
-      return;
-    }
 
-    const interval = setInterval(() => {
-      if (playerInstance.current?.getCurrentTime) {
-        const currentTime = playerInstance.current.getCurrentTime();
-        const duration = playerInstance.current.getDuration();
-        
-        // PROTECTION: Don't save 0 if we are still waiting for the initial seek to complete
-        const isActuallyPlaying = currentTime > 0 || (initialTime === 0 && seekPerformedRef.current);
-        
-        if (isActuallyPlaying) {
-          onProgress(videoId, currentTime, duration);
-        }
-      }
-    }, 1000); // Save every 1 second
-
-    return () => clearInterval(interval);
-  }, [currentState, onProgress]);
 
   return (
     <div className={`relative w-full h-full bg-black overflow-hidden ${className}`}>
