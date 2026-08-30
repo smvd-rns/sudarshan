@@ -39,8 +39,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     }
     checkDbHealth();
-    const interval = setInterval(checkDbHealth, 10000); // Check every 10 seconds
-    return () => clearInterval(interval);
+    // Removed 10-second polling to save Supabase API requests
   }, []);
 
   useEffect(() => {
