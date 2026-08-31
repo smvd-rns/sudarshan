@@ -20,27 +20,55 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [checkingDb, setCheckingDb] = useState(true);
   const [offlineAcknowledged, setOfflineAcknowledged] = useState(false);
 
-  const { profile, loading: profileLoading, refreshProfile } = useProfile(session);
+  const { profile, loading: profileLoading, error: profileError, refreshProfile } = useProfile(session);
 
   useEffect(() => {
-    // Check if Next.js/DB API is responding
+    // Direct check to database (bypassing Vercel Serverless API) with a 10-minute client cache
     async function checkDbHealth() {
+      const CACHE_KEY = "db_health_status";
+      const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
       try {
-        const res = await fetch("/api/db-health");
-        if (!res.ok) {
-          setDbOffline(true);
-        } else {
-          setDbOffline(false);
+        if (typeof window !== "undefined") {
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const { status, timestamp } = JSON.parse(cached);
+            if (status === "online" && Date.now() - timestamp < CACHE_TTL) {
+              setDbOffline(false);
+              setCheckingDb(false);
+              return;
+            }
+          }
         }
+
+        // Perform a direct query using client-side Supabase client
+        const { error } = await supabase.from("profiles").select("id").limit(1).maybeSingle();
+        if (error) throw error;
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ status: "online", timestamp: Date.now() }));
+        }
+        setDbOffline(false);
       } catch (err) {
+        console.warn("[DB Health Check] Direct database check failed:", err);
         setDbOffline(true);
       } finally {
         setCheckingDb(false);
       }
     }
     checkDbHealth();
-    // Removed 10-second polling to save Supabase API requests
   }, []);
+
+  // Reactive fail-safe: if profile query fails, invalidate cache and trigger offline mode
+  useEffect(() => {
+    if (profileError) {
+      console.warn("Profile fetch failed, database might be offline:", profileError);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("db_health_status");
+      }
+      setDbOffline(true);
+    }
+  }, [profileError]);
 
   useEffect(() => {
     // 1. Initial Session Check with fallback for network error
@@ -52,6 +80,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       })
       .catch(err => {
         console.warn("Auth check failed (DB offline):", err);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("db_health_status");
+        }
+        setDbOffline(true);
         setAuthLoading(false);
       });
 
