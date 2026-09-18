@@ -102,7 +102,7 @@ export default function YouTubeChannelHub() {
     const sessionStr = localStorage.getItem('supabase.auth.token'); // Fallback if no session prop
     const token = sessionStr ? JSON.parse(sessionStr).access_token : null;
     
-    const { data: { session } } = await supabase.auth.getSession();
+    const session = await getOfflineSafeSession();
     if (!session) {
       window.dispatchEvent(new CustomEvent("show-policy"));
       return;
@@ -574,7 +574,7 @@ export default function YouTubeChannelHub() {
       const plParam = activePlaylistId ? `&playlistId=${activePlaylistId}` : "";
       const tParam = `&_t=${Date.now()}`;
       
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const session = await getOfflineSafeSession();
       const headers: Record<string, string> = {};
       if (session) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -586,10 +586,17 @@ export default function YouTubeChannelHub() {
       
       if (!res.ok) {
         fetchedRef.current.delete(cacheKey);
-        const serverDetails = typeof data?.details === "string"
-          ? data.details
-          : data?.details?.error?.message;
-        setError(serverDetails || data?.error || `HTTP ${res.status}`);
+        const hasCachedItems = prev => {
+          // This isn't easily accessible without prev state, but since we are relying on fetch, 
+          // let's check contentCache directly.
+          return contentCache[channel.channel_id]?.[tab]?.[pId]?.items?.length > 0;
+        };
+        if (!contentCache[channel.channel_id]?.[tab]?.[pId]?.items?.length) {
+          const serverDetails = typeof data?.details === "string"
+            ? data.details
+            : data?.details?.error?.message;
+          setError(serverDetails || data?.error || `HTTP ${res.status}`);
+        }
         return;
       }
 
@@ -616,8 +623,12 @@ export default function YouTubeChannelHub() {
         setLogoCache((prev) => ({ ...prev, [channel.channel_id]: data.channelLogo }));
       }
     } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : "Could not load content.");
-      console.error(err);
+      const pId = activePlaylistId || "main";
+      const hasCachedItems = contentCache[channel.channel_id]?.[tab]?.[pId]?.items?.length > 0;
+      if (!hasCachedItems) {
+        setError(err instanceof Error && err.message ? err.message : "Could not load content.");
+      }
+      console.error("[fetchContent Error]", err);
     } finally {
       setLoading(false);
       setLoadMoreLoading(false);
@@ -659,7 +670,7 @@ export default function YouTubeChannelHub() {
 
       setIsSearchingGlobal(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await getOfflineSafeSession();
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -750,7 +761,7 @@ export default function YouTubeChannelHub() {
     if (!isCached && !fetchedVideoMetadata[activeVideoId]) {
       const fetchMetadata = async () => {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const session = await getOfflineSafeSession();
           const headers: Record<string, string> = {};
           if (session) {
             headers["Authorization"] = `Bearer ${session.access_token}`;
