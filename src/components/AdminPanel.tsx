@@ -10,7 +10,7 @@ import {
   Save, Trash2, ArrowRight, FileSpreadsheet, Download, CloudUpload,
   Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Shield, UserCheck,
   Settings, Play, Clock, HardDrive, Plus, X, Activity, Grid, Calendar, Monitor, ArrowRightLeft, RotateCcw,
-  BookOpen, Check
+  BookOpen, Check, RefreshCw
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import * as XLSX from "xlsx";
@@ -22,8 +22,9 @@ import BCDBManager from "./BCDBManager";
 import AdminPolicyManager from "./AdminPolicyManager";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationsHistoryList from "./NotificationsHistoryList";
+import StoreSyncManager from "./StoreSyncManager";
 
-type ActiveView = "home" | "bc-class" | "users" | "youtube-channels" | "usage-analytics" | "attendance-machines" | "attendance-tracing" | "bcdb" | "policies" | "notifications";
+type ActiveView = "home" | "bc-class" | "users" | "youtube-channels" | "usage-analytics" | "attendance-machines" | "attendance-tracing" | "bcdb" | "policies" | "notifications" | "store-sync";
 
 export default function AdminPanel() {
   const searchParams = useSearchParams();
@@ -568,7 +569,9 @@ export default function AdminPanel() {
     4: "BC Access",
     5: "Manager",
     6: "Viewer",
-    7: "Virtual Machine Incharge"
+    7: "Virtual Machine Incharge",
+    8: "Store Admin",
+    9: "Store Manager"
   };
 
   const roleColors: Record<number, string> = {
@@ -578,7 +581,9 @@ export default function AdminPanel() {
     4: "bg-emerald-50 text-emerald-700 border-emerald-100",
     5: "bg-purple-50 text-purple-700 border-purple-100",
     6: "bg-slate-50 text-slate-700 border-slate-100",
-    7: "bg-cyan-50 text-cyan-700 border-cyan-100"
+    7: "bg-cyan-50 text-cyan-700 border-cyan-100",
+    8: "bg-amber-50 text-amber-700 border-amber-100",
+    9: "bg-teal-50 text-teal-700 border-teal-100"
   };
 
   // Pagination Logic
@@ -1138,6 +1143,28 @@ export default function AdminPanel() {
                       <p className="text-slate-500 font-medium text-[10px] sm:text-sm mt-0.5 sm:mt-1 leading-relaxed line-clamp-1 sm:line-clamp-none">Upload official Ashram guidelines and PDFs for restricted member access.</p>
                     </div>
                     <div className="flex items-center gap-2 text-indigo-700 font-black text-[10px] uppercase tracking-widest mt-1 sm:mt-4">
+                      Enter <ArrowRight className="w-3 h-3 group-hover:translate-x-2 transition-transform" />
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* Store Sync Card */}
+              {isSuperAdmin && (
+                <button
+                  onClick={() => navigateToView("store-sync")}
+                  className="group relative bg-white p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 border-slate-200 hover:border-teal-600 shadow-xl hover:shadow-2xl transition-all duration-300 text-left overflow-hidden h-auto sm:h-[260px] flex sm:block items-center gap-4 sm:gap-0"
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500 hidden sm:block" />
+                  <div className="relative z-10 w-12 h-12 sm:w-16 sm:h-16 bg-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-100 group-hover:-rotate-6 transition-transform shrink-0">
+                    <RefreshCw className="w-6 h-6 sm:w-8 sm:h-8" />
+                  </div>
+                  <div className="relative z-10 sm:mt-4 flex-1 min-w-0">
+                    <div>
+                      <h3 className="text-lg sm:text-2xl font-black text-devo-950 uppercase tracking-tight sm:normal-case">Store DB Sync</h3>
+                      <p className="text-slate-500 font-medium text-[10px] sm:text-sm mt-0.5 sm:mt-1 leading-relaxed line-clamp-1 sm:line-clamp-none">Synchronize users from Main DB to IDKT Store DB.</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-teal-600 font-black text-[10px] uppercase tracking-widest mt-1 sm:mt-4">
                       Enter <ArrowRight className="w-3 h-3 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </div>
@@ -2050,6 +2077,19 @@ export default function AdminPanel() {
                           {isFetchingYt ? <Loader2 className="w-4 h-4 animate-spin" /> : "Fetch"}
                         </button>
                       </div>
+                      {(() => {
+                        const rawId = activeYtChannel?.channel_id?.trim();
+                        if (!rawId) return null;
+                        const match = ytChannels.find((c: any) => c.channel_id?.trim().toLowerCase() === rawId.toLowerCase() && c.id !== activeYtChannel?.id);
+                        if (match) {
+                          return (
+                            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1.5 pl-1 flex items-center gap-1">
+                              <span>⚠️ Already registered as <strong>&quot;{match.name || match.channel_id}&quot;</strong></span>
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-1">Portal Display Name</label>
@@ -3222,6 +3262,28 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* VIEW: Notifications History */}
+        {(activeView === "notifications" && isManager) && (
+          <NotificationsHistoryList />
+        )}
+
+        {/* VIEW: Store Sync */}
+        {(activeView === "store-sync" && isSuperAdmin) && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+            <div className="flex items-center gap-4 mb-8">
+              <button onClick={() => navigateToView("home")} className="p-2 sm:p-3 bg-white hover:bg-slate-50 border-2 border-slate-200 rounded-xl transition-all shadow-sm group">
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:-translate-x-1 transition-transform" />
+              </button>
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Store DB Sync</h2>
+                <p className="text-xs sm:text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">Cross-Database Sync Engine</p>
+              </div>
+            </div>
+            
+            <StoreSyncManager session={session} />
+          </div>
+        )}
+
         {/* VIEW: Notification Center (Broadcast) */}
         {activeView === "notifications" && isManager && (
           <div className="space-y-8 animate-in slide-in-from-right-4 duration-500 pb-20">
@@ -3657,14 +3719,26 @@ export default function AdminPanel() {
   }
 
   async function handleFetchYtInfo() {
-    if (!activeYtChannel?.channel_id) return;
+    const rawChannelId = activeYtChannel?.channel_id?.trim();
+    if (!rawChannelId) return;
+
+    // Check if channel already exists in the portal list
+    const existing = ytChannels.find(
+      (c: any) => c.channel_id?.trim().toLowerCase() === rawChannelId.toLowerCase() && c.id !== activeYtChannel?.id
+    );
+
+    if (existing) {
+      alert(`⚠️ Channel already exists!\n\n"${existing.name || rawChannelId}" is already registered in your portal channel list.`);
+      return;
+    }
+
     setIsFetchingYt(true);
     try {
       const headers: Record<string, string> = {};
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      const infoRes = await fetch(`/api/youtube?channelId=${activeYtChannel.channel_id}`, { headers });
+      const infoRes = await fetch(`/api/youtube?channelId=${rawChannelId}`, { headers });
       const data = await infoRes.json();
       if (data.channelTitle) {
         setActiveYtChannel((prev: any) => ({
@@ -3712,9 +3786,12 @@ export default function AdminPanel() {
       if (res.ok) {
         setYtModalOpen(false);
         fetchYtChannels();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "Failed to save channel.");
       }
-    } catch (err) {
-      alert("Failed to save channel.");
+    } catch (err: any) {
+      alert(err?.message || "Failed to save channel.");
     }
   }
 

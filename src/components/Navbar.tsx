@@ -3,16 +3,18 @@
 import { useState, useEffect } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Settings, Monitor, UserCheck, CalendarDays, BookOpen, MoreHorizontal, X, User, Shield, Users, Plane, Bell, Music, Download, ExternalLink, Film } from "lucide-react";
+import { LogOut, Settings, Monitor, UserCheck, CalendarDays, BookOpen, MoreHorizontal, X, User, Shield, Users, Plane, Bell, Music, Download, ExternalLink, Film, ShoppingCart } from "lucide-react";
 import ProfileEdit from "./ProfileEdit";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 import { useVmInchargeAccess } from "@/hooks/useVmInchargeAccess";
+import { useStoreAccess } from "@/hooks/useStoreAccess";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [session, setSession] = useState<any>(null);
   const { profile, isBcdb, isManager, isSuperAdmin, isAttendanceIncharge, isVmIncharge, refreshProfile } = useProfile(session);
+  const { hasStoreAccess } = useStoreAccess(session);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showDesktopMore, setShowDesktopMore] = useState(false);
@@ -62,9 +64,16 @@ export default function Navbar() {
 
   const isHome = pathname === "/";
   const isClass = pathname === "/class";
+  const isYatra = pathname.startsWith('/yatra');
+  const isBcClass = pathname === '/bc-class';
+  const isShorts = pathname === '/shorts';
+  const isStore = pathname.startsWith('/store');
   const isAttendance = pathname === "/attendance";
   const isIdkt = pathname === "/iskcon-desire-tree";
-  const isShorts = pathname === "/shorts";
+
+  if (pathname === "/login" || pathname === "/register/bcdb") {
+    return null;
+  }
 
   return (
     <>
@@ -134,6 +143,18 @@ export default function Navbar() {
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest text-inherit">Desire Tree</span>
           </NextLink>
+
+          {hasStoreAccess && (
+            <NextLink 
+              href="/store/request" 
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all group shadow-sm ${isStore ? 'bg-teal-600 text-white border-teal-600 shadow-teal-200' : 'bg-teal-50 text-teal-600 border-teal-100 hover:bg-white'}`}
+            >
+              <div className="flex items-center justify-center relative">
+                 <ShoppingCart className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-inherit">Store</span>
+            </NextLink>
+          )}
 
           {/* Desktop "More" Dropdown */}
           <div className="relative">
@@ -420,6 +441,18 @@ export default function Navbar() {
                   <Plane className={`w-4 h-4 ${pathname === '/travel-desk' ? 'text-sky-600' : 'text-slate-400'}`} />
                   <span className={`text-[11px] font-black uppercase tracking-widest flex-1 ${pathname === '/travel-desk' ? 'text-sky-900' : 'text-slate-600'}`}>Travel Desk</span>
                   <div className={`w-1.5 h-1.5 rounded-full bg-sky-500 ${pathname === '/travel-desk' ? 'opacity-100' : 'opacity-0'}`} />
+                </NextLink>
+              )}
+
+              {hasStoreAccess && (
+                <NextLink 
+                  href="/store/request" 
+                  onClick={() => setShowMoreMenu(false)}
+                  className={`flex items-center gap-4 px-6 py-3.5 transition-all ${pathname.startsWith('/store') ? 'bg-teal-50/50' : 'hover:bg-slate-50'}`}
+                >
+                  <ShoppingCart className={`w-4 h-4 ${pathname.startsWith('/store') ? 'text-teal-600' : 'text-slate-400'}`} />
+                  <span className={`text-[11px] font-black uppercase tracking-widest flex-1 ${pathname.startsWith('/store') ? 'text-teal-900' : 'text-slate-600'}`}>Store</span>
+                  <div className={`w-1.5 h-1.5 rounded-full bg-teal-500 ${pathname.startsWith('/store') ? 'opacity-100' : 'opacity-0'}`} />
                 </NextLink>
               )}
 

@@ -11,17 +11,50 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Helper to sync to the YouTube DB
 async function syncToYtDb(channelId: string, name: string, visibility: string, hideShorts = false, isDelete = false) {
   if (!supabaseYtAdmin) return;
-  
-  if (isDelete) {
-    await supabaseYtAdmin.from("youtube_channels").delete().eq("channel_id", channelId);
-  } else {
-    await supabaseYtAdmin.from("youtube_channels").upsert({
-      channel_id: channelId,
-      name,
-      visibility,
-      hide_shorts: hideShorts
-    }, { onConflict: 'channel_id' });
+  try {
+    if (isDelete) {
+      await supabaseYtAdmin.from("youtube_channels").delete().eq("channel_id", channelId);
+    } else {
+      await supabaseYtAdmin.from("youtube_channels").upsert({
+        channel_id: channelId,
+        name,
+        visibility,
+        hide_shorts: hideShorts
+      }, { onConflict: 'channel_id' });
+    }
+  } catch (err) {
+    console.warn("[syncToYtDb] Failed to sync to YouTube DB:", err);
   }
+}
+
+// Columns allowed in Main DB youtube_channels table
+const MAIN_DB_ALLOWED_COLUMNS = new Set([
+  "channel_id",
+  "name",
+  "visibility",
+  "order_index",
+  "custom_logo",
+  "hide_shorts",
+  "is_active",
+  "speaker_name",
+  "bg_gradient"
+]);
+
+function sanitizeMainDbPayload(raw: Record<string, any>, isUpdate = false) {
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (MAIN_DB_ALLOWED_COLUMNS.has(key)) {
+      sanitized[key] = value;
+    }
+  }
+  if (isUpdate && raw.id) {
+    sanitized.id = raw.id;
+  }
+  sanitized.visibility = sanitized.visibility || 'public';
+  if (!isUpdate && sanitized.is_active === undefined) {
+    sanitized.is_active = true;
+  }
+  return sanitized;
 }
 
 async function verifyAdminOrManager(req: NextRequest) {
@@ -80,8 +113,9 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ channels: mainChannels || [] });
-  } catch (err) {
-    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Fetch error:", err);
+    return NextResponse.json({ error: err.message || "Failed to fetch" }, { status: 500 });
   }
 }
 
@@ -94,7 +128,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const payload = { ...body, visibility: body.visibility || 'public' };
+    const payload = sanitizeMainDbPayload(body, false);
+
+    if (!payload.channel_id) {
+      return NextResponse.json({ error: "Channel ID is required" }, { status: 400 });
+    }
+
+    // Check if channel already exists with the same channel_id
+    const { data: existing } = await supabase
+      .from("youtube_channels")
+      .select("id, name, channel_id")
+      .eq("channel_id", payload.channel_id)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json({ 
+        error: `Channel already exists: "${existing.name || payload.channel_id}" is already present in your channel list.` 
+      }, { status: 409 });
+    }
     
     // 1. Insert into Main DB
     const { data, error } = await supabase
@@ -113,9 +164,9 @@ export async function POST(request: NextRequest) {
     await invalidateCache(CacheKeys.channelsPublic);
 
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Insert error:", err);
-    return NextResponse.json({ error: "Failed to insert" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to insert" }, { status: 500 });
   }
 }
 
@@ -128,7 +179,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, ...updates } = body;
+    const { id, ...rawUpdates } = body;
+    const updates = sanitizeMainDbPayload(rawUpdates, false);
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing channel id" }, { status: 400 });
+    }
 
     // 1. Update Main DB
     const { data, error } = await supabase
@@ -148,13 +204,17 @@ export async function PUT(request: NextRequest) {
         hide_shorts: data[0].hide_shorts
       };
       
-      if ('sync_status' in updates) ytUpdates.sync_status = updates.sync_status;
-      if ('metadata' in updates) ytUpdates.metadata = updates.metadata;
-      if ('sync_error' in updates) ytUpdates.sync_error = updates.sync_error;
-      if ('sync_cursor' in updates) ytUpdates.sync_cursor = updates.sync_cursor;
+      if ('sync_status' in rawUpdates) ytUpdates.sync_status = rawUpdates.sync_status;
+      if ('metadata' in rawUpdates) ytUpdates.metadata = rawUpdates.metadata;
+      if ('sync_error' in rawUpdates) ytUpdates.sync_error = rawUpdates.sync_error;
+      if ('sync_cursor' in rawUpdates) ytUpdates.sync_cursor = rawUpdates.sync_cursor;
 
       if (supabaseYtAdmin) {
-        await supabaseYtAdmin.from("youtube_channels").upsert(ytUpdates, { onConflict: 'channel_id' });
+        try {
+          await supabaseYtAdmin.from("youtube_channels").upsert(ytUpdates, { onConflict: 'channel_id' });
+        } catch (ytErr) {
+          console.warn("[PUT] Failed to sync update to YouTube DB:", ytErr);
+        }
       }
     }
 
@@ -165,9 +225,9 @@ export async function PUT(request: NextRequest) {
     );
 
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Update error:", err);
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to update" }, { status: 500 });
   }
 }
 
@@ -181,6 +241,10 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing channel id" }, { status: 400 });
+    }
 
     // Get channel_id before deleting
     const { data: channel } = await supabase.from("youtube_channels").select("channel_id").eq("id", id).single();
@@ -205,8 +269,8 @@ export async function DELETE(request: NextRequest) {
     );
 
     return NextResponse.json({ message: "Deleted" });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Delete error:", err);
-    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Failed to delete" }, { status: 500 });
   }
 }

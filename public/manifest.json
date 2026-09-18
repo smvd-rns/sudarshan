@@ -1,6 +1,6 @@
 {
-  "name": "YT Lectures App",
-  "short_name": "YT Lectures",
+  "name": "Spiritual Echoes",
+  "short_name": "Spiritual Library",
   "description": "Devotional YouTube Lectures App",
   "start_url": "/",
   "display": "standalone",
@@ -16,5 +16,4 @@
   "categories": ["education", "entertainment"],
   "lang": "en",
   "dir": "ltr"
-}</content>
-<parameter name="filePath">c:\Users\Admin\Documents\BC-Class\yt-lectures-final\public\manifest.json
+}

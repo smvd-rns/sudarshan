@@ -5,27 +5,36 @@ import { supabase } from "@/lib/supabase";
 
 const BCDB_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const bcdbCheckCache = new Map<string, { isBcdb: boolean; at: number }>();
+let globalProfileCache: { userId: string; profile: any; isBcdb: boolean } | null = null;
 
 export function useProfile(session: any) {
-  const [profile, setProfile] = useState<any>(null);
-  const [isBcdb, setIsBcdb] = useState(false);
+  const currentUserId = session?.user?.id;
+  const isCached = globalProfileCache && globalProfileCache.userId === currentUserId;
 
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(isCached ? globalProfileCache!.profile : null);
+  const [isBcdb, setIsBcdb] = useState(isCached ? globalProfileCache!.isBcdb : false);
+
+  const [loading, setLoading] = useState(!isCached);
   const [error, setError] = useState<string | null>(null);
   const [isTimeout, setIsTimeout] = useState(false);
-  const [lastCheckedId, setLastCheckedId] = useState<string | null>(null);
+  const [lastCheckedId, setLastCheckedId] = useState<string | null>(isCached ? currentUserId : null);
 
   const fetchProfile = useCallback(async (userId: string, force = false) => {
-    if (userId === lastCheckedId && !force) {
+    if (userId === lastCheckedId && !force && isCached) {
        setLoading(false);
        return;
     }
 
-    setLoading(true);
+    if (!isCached || force) {
+      setLoading(true);
+    }
     setLastCheckedId(userId);
+
     try {
+      let finalBcdb = false;
+
       const checkBcdb = async (email: string, roleOrRoles?: number | number[]) => {
-        if (!email) return;
+        if (!email) return false;
 
         const rolesArr = Array.isArray(roleOrRoles) 
           ? roleOrRoles 
@@ -35,13 +44,7 @@ export function useProfile(session: any) {
 
         if (hasAdminRole) {
           setIsBcdb(true);
-          return;
-        }
-
-        // Database persistence check
-        if (profile?.is_bcdb_verified) {
-          setIsBcdb(true);
-          return;
+          return true;
         }
 
         const normalizedEmail = email.toLowerCase().trim();
@@ -49,7 +52,7 @@ export function useProfile(session: any) {
         const now = Date.now();
         if (cached && now - cached.at < BCDB_CACHE_TTL_MS) {
           setIsBcdb(cached.isBcdb);
-          return;
+          return cached.isBcdb;
         }
 
         try {
@@ -60,23 +63,25 @@ export function useProfile(session: any) {
           }
           const res = await fetch(`/api/auth/bcdb-check`, {
              headers,
-             signal: AbortSignal.timeout(10000) // Hard browser timeout
+             signal: AbortSignal.timeout(10000)
           });
           
           if (res.status === 504) {
              console.warn("BCDB Check Timed Out");
              setIsTimeout(true);
              setIsBcdb(false);
-             return;
+             return false;
           }
 
           const data = await res.json();
           const result = !!data.isBcdb;
           setIsBcdb(result);
           bcdbCheckCache.set(normalizedEmail, { isBcdb: result, at: now });
+          return result;
         } catch (err) {
           console.error("BCDB Check API Error:", err);
           setIsBcdb(false);
+          return false;
         }
       };
 
@@ -91,16 +96,18 @@ export function useProfile(session: any) {
 
       if (data) {
         setProfile(data);
-        // Initialize state immediately from database flag to prevent UI flicker
         if (data.is_bcdb_verified) {
           setIsBcdb(true);
+          finalBcdb = true;
+        } else {
+          finalBcdb = await checkBcdb(data.email || session?.user?.email, data.roles || data.role);
         }
-        await checkBcdb(data.email || session?.user?.email, data.roles || data.role);
+        globalProfileCache = { userId, profile: data, isBcdb: finalBcdb };
         setLoading(false);
         return;
       }
 
-      // 2. No profile by ID. Check if an unlinked profile exists with this email (Pre-filled from BCDB)
+      // 2. Claim existing unlinked profile if email matches
       if (session?.user?.email) {
         const { data: emailMatch, error: emailError } = await supabase
           .from("profiles")
@@ -111,7 +118,6 @@ export function useProfile(session: any) {
         if (emailError) throw emailError;
 
         if (emailMatch) {
-          // CLAIM THE PROFILE: Update the existing profile with the new auth ID
           const { data: updatedProfile, error: claimError } = await supabase
             .from("profiles")
             .update({ id: userId, updated_at: new Date().toISOString() })
@@ -122,13 +128,14 @@ export function useProfile(session: any) {
           if (claimError) throw claimError;
           
           setProfile(updatedProfile);
-          await checkBcdb(updatedProfile.email || session?.user?.email, updatedProfile.roles || updatedProfile.role);
+          finalBcdb = await checkBcdb(updatedProfile.email || session?.user?.email, updatedProfile.roles || updatedProfile.role);
+          globalProfileCache = { userId, profile: updatedProfile, isBcdb: finalBcdb };
           setLoading(false);
           return;
         }
       }
 
-      // 3. Fallback: Create a new blank profile if none exists by ID or Email
+      // 3. Fallback: Create new profile
       const { data: newProfile, error: createError } = await supabase
         .from("profiles")
         .upsert({ 
@@ -143,7 +150,8 @@ export function useProfile(session: any) {
         
       if (createError) throw createError;
       setProfile(newProfile);
-      await checkBcdb(newProfile.email || session?.user?.email, newProfile.roles || newProfile.role);
+      finalBcdb = await checkBcdb(newProfile.email || session?.user?.email, newProfile.roles || newProfile.role);
+      globalProfileCache = { userId, profile: newProfile, isBcdb: finalBcdb };
 
     } catch (err: any) {
       console.error("Profile Hook Error:", err.message || err);
@@ -151,7 +159,7 @@ export function useProfile(session: any) {
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.id, lastCheckedId]);
+  }, [session?.user?.id, lastCheckedId, isCached]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -161,12 +169,13 @@ export function useProfile(session: any) {
       setIsBcdb(false);
       setLastCheckedId(null);
       setLoading(false);
+      globalProfileCache = null;
     }
   }, [session?.user?.id, fetchProfile]);
 
-  const activeProfile = (profile && profile.id === session?.user?.id) ? profile : null;
-  const activeIsBcdb = (profile && profile.id === session?.user?.id) ? isBcdb : false;
-  const derivedLoading = loading || (!!session?.user?.id && lastCheckedId !== session.user.id);
+  const activeProfile = (profile && profile.id === session?.user?.id) ? profile : (isCached ? globalProfileCache?.profile : null);
+  const activeIsBcdb = (profile && profile.id === session?.user?.id) ? isBcdb : (isCached ? globalProfileCache?.isBcdb || false : false);
+  const derivedLoading = !isCached && (loading || (!!session?.user?.id && lastCheckedId !== session.user.id));
 
   const uRoles = Array.isArray(activeProfile?.roles) 
     ? activeProfile.roles 

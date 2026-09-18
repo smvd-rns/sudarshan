@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
-import Navbar from "@/components/Navbar";
 import PolicyManualView from "@/components/PolicyManualView";
 import { Loader2, ShieldAlert } from "lucide-react";
 
@@ -32,9 +31,8 @@ export default function PolicyManualPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar />
-      <main className="max-w-7xl mx-auto px-4 py-12">
+    <div>
+      <main className="max-w-7xl mx-auto px-4 py-8">
         {isBcdb ? (
           <PolicyManualView isEligible={isBcdb} email={session?.user?.email} />
         ) : (

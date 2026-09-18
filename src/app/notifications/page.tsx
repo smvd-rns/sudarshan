@@ -1,16 +1,13 @@
 "use client";
 
 import React from "react";
-import Navbar from "@/components/Navbar";
 import NotificationsHistoryList from "@/components/NotificationsHistoryList";
 import { Bell, ShieldCheck } from "lucide-react";
 
 export default function NotificationsPage() {
   return (
-    <div className="min-h-screen bg-slate-50/50">
-      <Navbar />
-      
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+    <div>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
         
         {/* Header Section */}
         <div className="mb-12 relative overflow-hidden bg-gradient-to-br from-purple-900 via-indigo-950 to-slate-900 rounded-[2.5rem] p-8 sm:p-12 text-white shadow-2xl border border-white/5">

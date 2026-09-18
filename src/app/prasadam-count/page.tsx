@@ -5,7 +5,6 @@ import {
   Users, Calendar, Clock, ChevronLeft, ChevronRight, 
   Loader2, RefreshCcw, UtensilsCrossed, Info
 } from "lucide-react";
-import Navbar from "@/components/Navbar";
 import { getPrasadamCounts, PrasadamCountHistory } from "./actions";
 
 export default function PrasadamCountPage() {
@@ -40,7 +39,6 @@ export default function PrasadamCountPage() {
 
   return (
     <div className="min-h-screen bg-[#fcf9f2] font-outfit text-slate-800 pb-20 overflow-hidden relative">
-      <Navbar />
       {/* Dynamic Background Elements */}
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-orange-100/50 to-transparent -z-10" />
       <div className="absolute -top-24 -right-24 w-96 h-96 bg-orange-200/20 rounded-full blur-3xl -z-10" />

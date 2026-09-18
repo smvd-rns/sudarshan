@@ -6,6 +6,7 @@ import PolicyModal from "@/components/PolicyModal";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { MediaProvider } from "@/context/MediaContext";
 import IdktPlayer from "@/components/idkt/IdktPlayer";
+import Navbar from "@/components/Navbar";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -28,15 +29,15 @@ export default function RootLayout({
       >
         <ServiceWorkerRegister />
         <div className="min-h-screen flex flex-col">
-          {/* Main Content Area */}
-          <main className="w-full pt-0 md:pt-16 lg:pt-8 pb-24 md:pb-8 flex-grow">
-            <AuthGuard>
-              <MediaProvider>
+          <AuthGuard>
+            <MediaProvider>
+              <Navbar />
+              <main className="w-full pb-24 md:pb-8 flex-grow">
                 {children}
-                <IdktPlayer />
-              </MediaProvider>
-            </AuthGuard>
-          </main>
+              </main>
+              <IdktPlayer />
+            </MediaProvider>
+          </AuthGuard>
           
           {/* Global Policy Modal */}
           <PolicyModal />

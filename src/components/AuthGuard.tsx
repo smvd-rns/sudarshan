@@ -22,6 +22,35 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const { profile, loading: profileLoading, error: profileError, refreshProfile } = useProfile(session);
 
+  const withTimeout = <T,>(promise: PromiseLike<T>, ms: number = 3000): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+      Promise.resolve(promise).then(
+        (res) => { clearTimeout(timer); resolve(res); },
+        (err) => { clearTimeout(timer); reject(err); }
+      );
+    });
+  };
+
+  useEffect(() => {
+    const handleOfflineEvent = () => {
+      console.warn("Browser offline event detected.");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("db_health_status");
+      }
+      setDbOffline(true);
+      setCheckingDb(false);
+      setAuthLoading(false);
+    };
+
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      handleOfflineEvent();
+    }
+
+    window.addEventListener("offline", handleOfflineEvent);
+    return () => window.removeEventListener("offline", handleOfflineEvent);
+  }, []);
+
   useEffect(() => {
     // Direct check to database (bypassing Vercel Serverless API) with a 10-minute client cache
     async function checkDbHealth() {
@@ -41,16 +70,22 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Perform a direct query using client-side Supabase client
-        const { error } = await supabase.from("profiles").select("id").limit(1).maybeSingle();
-        if (error) throw error;
+        // Perform a direct query using client-side Supabase client with 3-second timeout
+        const res: any = await withTimeout<any>(
+          supabase.from("profiles").select("id").limit(1).maybeSingle(),
+          3000
+        );
+        if (res?.error) throw res.error;
 
         if (typeof window !== "undefined") {
           localStorage.setItem(CACHE_KEY, JSON.stringify({ status: "online", timestamp: Date.now() }));
         }
         setDbOffline(false);
       } catch (err) {
-        console.warn("[DB Health Check] Direct database check failed:", err);
+        console.warn("[DB Health Check] Direct database check failed or timed out:", err);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(CACHE_KEY);
+        }
         setDbOffline(true);
       } finally {
         setCheckingDb(false);
@@ -71,15 +106,15 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [profileError]);
 
   useEffect(() => {
-    // 1. Initial Session Check with fallback for network error
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+    // 1. Initial Session Check with fallback for network error / timeout
+    withTimeout(supabase.auth.getSession(), 3000)
+      .then(({ data: { session } }: any) => {
         setSession(session);
         setAuthLoading(false);
         if (session) recordUserVisit(session.user.id);
       })
       .catch(err => {
-        console.warn("Auth check failed (DB offline):", err);
+        console.warn("Auth check failed or timed out (DB offline):", err);
         if (typeof window !== "undefined") {
           localStorage.removeItem("db_health_status");
         }

@@ -4,7 +4,6 @@ import React, { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 import { useVmInchargeAccess } from "@/hooks/useVmInchargeAccess";
-import Navbar from "@/components/Navbar";
 import AttendanceTracing from "@/components/AttendanceTracing";
 import AttendanceExceptionForm from "@/components/AttendanceExceptionForm";
 import AttendanceInchargeForm from "@/components/AttendanceInchargeForm";
@@ -49,29 +48,24 @@ export default function PersonalAttendancePage() {
 
   if (!isBcdb && !isAttendanceIncharge && !isVirtualMachineIncharge && !isSuperAdmin) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center pt-24">
-          <div className="w-20 h-20 bg-rose-50 rounded-[2rem] shadow-xl flex items-center justify-center mb-8 border border-rose-100">
-            <ShieldAlert className="w-10 h-10 text-rose-500" />
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-4">Access Restricted</h1>
-          <p className="text-slate-500 font-bold max-w-md mb-8">This portal is specifically reserved for active members of the BCDB. If you believe this is an error, please contact your administrative temple in-charge.</p>
-          <button
-            onClick={() => window.location.href = "/"}
-            className="text-slate-400 font-black uppercase tracking-widest text-xs hover:text-indigo-600 transition-colors"
-          >
-            Return to Homepage
-          </button>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center pt-24">
+        <div className="w-20 h-20 bg-rose-50 rounded-[2rem] shadow-xl flex items-center justify-center mb-8 border border-rose-100">
+          <ShieldAlert className="w-10 h-10 text-rose-500" />
         </div>
-      </>
+        <h1 className="text-3xl font-black text-slate-900 tracking-tighter mb-4">Access Restricted</h1>
+        <p className="text-slate-500 font-bold max-w-md mb-8">This portal is specifically reserved for active members of the BCDB. If you believe this is an error, please contact your administrative temple in-charge.</p>
+        <button
+          onClick={() => window.location.href = "/"}
+          className="text-slate-400 font-black uppercase tracking-widest text-xs hover:text-indigo-600 transition-colors"
+        >
+          Return to Homepage
+        </button>
+      </div>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-slate-50 pt-16 sm:pt-20 pb-24 md:pb-20 overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 pt-4 sm:pt-8 pb-24 md:pb-20 overflow-x-hidden">
         <div className="max-w-[1700px] mx-auto px-3 sm:px-6 lg:px-12 min-w-0">
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 xl:gap-10 items-start min-w-0">
             {/* Main Attendance Section - Left side */}
@@ -152,6 +146,5 @@ export default function PersonalAttendancePage() {
           </div>
         </div>
       </div>
-    </>
   );
 }

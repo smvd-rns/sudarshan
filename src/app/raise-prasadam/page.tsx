@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
-import Navbar from "@/components/Navbar";
 import { Loader2, ShieldAlert, ExternalLink, RefreshCw } from "lucide-react";
 
 export default function RaisePrasadamPage() {
@@ -37,7 +36,6 @@ export default function RaisePrasadamPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-outfit">
-      <Navbar />
       <main className="max-w-7xl mx-auto w-full p-4 md:p-6 pb-20">
         {isBcdb ? (
           <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-xl border border-slate-200 overflow-hidden relative">

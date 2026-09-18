@@ -6,7 +6,6 @@ import { Loader2, ShieldCheck, PlaneIcon, AlertCircle } from "lucide-react";
 import TravelForm from "@/components/TravelForm";
 import TravelAdminView from "@/components/TravelAdminView";
 import AccessDenied from "@/components/AccessDenied";
-import Navbar from "@/components/Navbar";
 
 export default function TravelDeskPage() {
   const [session, setSession] = useState<any>(null);
@@ -53,40 +52,27 @@ export default function TravelDeskPage() {
     );
   }
 
-  // Manager or Super Admin View
+  // Admin / Manager View
   if (isManager || isSuperAdmin) {
-    return (
-      <>
-        <Navbar />
-        <TravelAdminView session={session} profile={profile} />
-      </>
-    );
+    return <TravelAdminView session={session} profile={profile} />;
   }
 
   // BCDB User View
   if (isBcdb) {
-    return (
-      <>
-        <Navbar />
-        <TravelForm session={session} profile={profile} />
-      </>
-    );
+    return <TravelForm session={session} profile={profile} />;
   }
 
   // Denied for others
   return (
-    <>
-      <Navbar />
-      <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center text-center">
-         <div className="w-20 h-20 bg-red-50 rounded-[2rem] flex items-center justify-center mb-8 shadow-xl shadow-red-500/10 border border-red-100">
-            <ShieldCheck className="w-10 h-10 text-red-500 opacity-20" />
-            <AlertCircle className="w-10 h-10 text-red-500 absolute" />
-         </div>
-         <h1 className="text-4xl font-black text-slate-900 tracking-tighter font-outfit uppercase">Restricted Area</h1>
-         <p className="text-slate-400 mt-4 max-w-sm font-bold text-sm leading-relaxed">
-            The Travel Desk is only accessible to verified BCDB members and system managers.
-         </p>
-      </div>
-    </>
+    <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center text-center">
+       <div className="w-20 h-20 bg-red-50 rounded-[2rem] flex items-center justify-center mb-8 shadow-xl shadow-red-500/10 border border-red-100">
+          <ShieldCheck className="w-10 h-10 text-red-500 opacity-20" />
+          <AlertCircle className="w-10 h-10 text-red-500 absolute" />
+       </div>
+       <h1 className="text-4xl font-black text-slate-900 tracking-tighter font-outfit uppercase">Restricted Area</h1>
+       <p className="text-slate-400 mt-4 max-w-sm font-bold text-sm leading-relaxed">
+          The Travel Desk is only accessible to verified BCDB members and system managers.
+       </p>
+    </div>
   );
 }

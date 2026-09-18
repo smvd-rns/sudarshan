@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
-import Navbar from "@/components/Navbar";
 import IdktExplorer from "@/components/idkt/IdktExplorer";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
@@ -24,9 +23,7 @@ export default function IskconDesireTreePage() {
   const { profile } = useProfile(session);
 
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-linear-to-b from-slate-50 to-white pt-10 sm:pt-20 pb-40 px-3 sm:px-6 lg:px-12">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-white pt-6 sm:pt-10 pb-40 px-3 sm:px-6 lg:px-12">
         <div className="max-w-[1400px] mx-auto">
           <Suspense fallback={
             <div className="flex flex-col items-center justify-center p-32 gap-4 bg-white/40 backdrop-blur-sm rounded-[3rem] border border-white/40 shadow-sm">
@@ -38,6 +35,5 @@ export default function IskconDesireTreePage() {
           </Suspense>
         </div>
       </div>
-    </>
   );
 }

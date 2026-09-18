@@ -191,23 +191,56 @@ export default function YouTubeChannelHub() {
   useEffect(() => {
     const fetchChannels = async () => {
       setLoadingChannels(true);
+
+      // 1. Instantly check any existing channels cache in localStorage BEFORE getSession or network call
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        if (typeof window !== "undefined") {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith("channels_cache_v3_")) {
+              const item = localStorage.getItem(k);
+              if (item) {
+                const parsed = JSON.parse(item);
+                if (parsed.channels?.length > 0) {
+                  setChannels(parsed.channels);
+                  setLoadingChannels(false);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Pre-check channels cache error:", e);
+      }
+
+      try {
+        // Wrap getSession with a timeout so offline/unhealthy Supabase doesn't freeze the hub
+        let session: any = null;
+        try {
+          const sessionPromise = supabase.auth.getSession();
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("getSession timeout")), 2500)
+          );
+          const resSession: any = await Promise.race([sessionPromise, timeoutPromise]);
+          session = resSession?.data?.session || null;
+        } catch (sessionErr) {
+          console.warn("Session fetch timed out or failed in YouTubeChannelHub:", sessionErr);
+        }
+
         const userId = session?.user?.id || "guest";
         const storageKey = `channels_cache_v3_${userId}`;
         
-        // 1. Try reading from LocalStorage Cache first
+        // 2. Try reading user-specific cache
         try {
           const rawCache = localStorage.getItem(storageKey);
           if (rawCache) {
             const parsed = JSON.parse(rawCache);
-            // 24 hours TTL = 86400000 ms
             const isFresh = Date.now() - parsed.timestamp < 86400000;
             if (parsed.channels?.length > 0) {
               setChannels(parsed.channels);
               setLoadingChannels(false);
               
-              // Handle URL query selection from cache immediately
               const urlChannelId = searchParams.get("channel");
               const urlPlaylistId = searchParams.get("playlist");
               const urlVideoId = searchParams.get("v");
@@ -222,7 +255,6 @@ export default function YouTubeChannelHub() {
               }
 
               if (isFresh) {
-                // Cache is still valid (< 24 hours). Skip network fetch completely.
                 return;
               }
             }
@@ -231,18 +263,20 @@ export default function YouTubeChannelHub() {
           console.warn("Failed to read local channels cache:", e);
         }
 
-        // 2. Fetch from network if cache is stale or missing
+        // 3. Fetch from network if cache is stale or missing
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
 
         const res = await fetch("/api/youtube/channels?v=2", { headers });
+        if (!res.ok) {
+          throw new Error(`Channels API returned status ${res.status}`);
+        }
         const data = await res.json();
         if (data.channels?.length > 0) {
           setChannels(data.channels);
           
-          // Save back to LocalStorage with timestamp
           try {
             localStorage.setItem(storageKey, JSON.stringify({
               channels: data.channels,
@@ -266,16 +300,14 @@ export default function YouTubeChannelHub() {
           }
         }
       } catch (err) {
-        // Only show error screen if we don't have cached data to fallback to
-        if (channels.length === 0) {
-          setError("Failed to load portal configuration.");
-        }
+        console.warn("Failed to fetch channels from network, using cached fallback:", err);
       } finally {
         setLoadingChannels(false);
       }
     };
+
     fetchChannels();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const urlChannelId = searchParams.get("channel");
@@ -337,18 +369,24 @@ export default function YouTubeChannelHub() {
     }
   }, [searchParams, channels, activeChannel?.channel_id, activePlaylistId, activeVideoId, activeTab]);
 
+  const getOfflineSafeSession = async () => {
+    try {
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Session check timeout")), 1500)
+      );
+      const res: any = await Promise.race([sessionPromise, timeoutPromise]);
+      return res?.data?.session || null;
+    } catch {
+      return null;
+    }
+  };
+
   const fetchFavorites = useCallback(async () => {
-    const sessionStr = localStorage.getItem('supabase.auth.token'); // Fallback if no session prop
-    const token = sessionStr ? JSON.parse(sessionStr).access_token : null;
-    
-    // Better way: use supabase.auth.getSession() or pass from parent
-    // For now, we'll try to get it from the supabase client directly if possible
-    // or just assume the API will handle the error if no token is sent.
-    
     setLoadingFavorites(true);
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getOfflineSafeSession();
       if (!session) return;
 
       const res = await fetch("/api/user/favorites?v=1", {
@@ -360,7 +398,7 @@ export default function YouTubeChannelHub() {
         setFavoriteVideos(data.items || []);
       }
     } catch (err) {
-      console.error("Failed to fetch favorites:", err);
+      console.warn("Failed to fetch favorites (offline mode active):", err);
     } finally {
       setLoadingFavorites(false);
       setLoading(false);
@@ -369,7 +407,7 @@ export default function YouTubeChannelHub() {
 
   const fetchFavoriteChannels = useCallback(async () => {
     try {
-      const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+      const session = await getOfflineSafeSession();
       if (!session) return;
 
       const res = await fetch("/api/user/favorite-channels?v=1", {
@@ -380,7 +418,7 @@ export default function YouTubeChannelHub() {
         setFavoriteChannels(data.favoriteIds || []);
       }
     } catch (err) {
-      console.error("Failed to fetch favorite channels:", err);
+      console.warn("Failed to fetch favorite channels (offline mode active):", err);
     }
   }, []);
 
@@ -388,7 +426,7 @@ export default function YouTubeChannelHub() {
     e.stopPropagation();
     
     // 1. Check Session First
-    const { data: { session } } = await (await import("@/lib/supabase")).supabase.auth.getSession();
+    const session = await getOfflineSafeSession();
     if (!session) {
       window.dispatchEvent(new CustomEvent("show-policy"));
       return;

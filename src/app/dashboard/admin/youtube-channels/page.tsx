@@ -70,14 +70,25 @@ export default function YouTubeAdmin() {
   };
 
   const handleFetchYoutube = async () => {
-    if (!activeItem?.channel_id) return;
+    const rawChannelId = activeItem?.channel_id?.trim();
+    if (!rawChannelId) return;
+
+    const existing = channels.find(
+      (c: any) => c.channel_id?.trim().toLowerCase() === rawChannelId.toLowerCase() && c.id !== activeItem?.id
+    );
+
+    if (existing) {
+      alert(`⚠️ Channel already exists!\n\n"${existing.name || rawChannelId}" is already registered in your portal channel list.`);
+      return;
+    }
+
     setFetching(true);
     try {
       const headers: Record<string, string> = {};
       if (session) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      const res = await fetch(`/api/youtube?channelId=${activeItem.channel_id}`, { headers });
+      const res = await fetch(`/api/youtube?channelId=${rawChannelId}`, { headers });
       const data = await res.json();
       if (data.channelTitle) {
         setActiveItem(prev => ({

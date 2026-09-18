@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import Navbar from "@/components/Navbar";
 import LectureGrid from "@/components/LectureGrid";
 import AuthUI from "@/components/AuthUI";
 import { useProfile } from "@/hooks/useProfile";
@@ -135,20 +134,17 @@ export default function Home() {
 
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar />
-      <div className="pt-12">
-        <LectureGrid 
-          initialLectures={lectures} 
-          userRole={profile?.role}
-          onUpdate={() => fetchLectures(0, true)}
-          accessToken={session?.access_token}
-          onLoadMore={handleLoadMore}
-          hasMore={hasMore}
-          isFetchingMore={isFetchingMore}
-          onSearch={handleSearch}
-        />
-      </div>
+    <div>
+      <LectureGrid 
+        initialLectures={lectures} 
+        userRole={profile?.role}
+        onUpdate={() => fetchLectures(0, true)}
+        accessToken={session?.access_token}
+        onLoadMore={handleLoadMore}
+        hasMore={hasMore}
+        isFetchingMore={isFetchingMore}
+        onSearch={handleSearch}
+      />
     </div>
   );
 }
