@@ -139,7 +139,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [checkingDb, authLoading, session, pathname, dbOffline]);
 
-  async function recordUserVisit(userId: string) {
+  function recordUserVisit(userId: string) {
     if (typeof window === "undefined") return;
     if (dbOffline) return; // Skip logs if DB is offline
     
@@ -147,33 +147,43 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
       const storageKey = `recorded_visit_${userId}_${today}`;
       
-      // Prevent redundant database writes on every page navigation
-      if (sessionStorage.getItem(storageKey)) {
+      // Prevent redundant database writes on every page navigation across all tabs/reloads
+      if (localStorage.getItem(storageKey)) {
         return;
       }
 
-      // 1. Update Profile (Last Seen status)
-      await supabase
-        .from("profiles")
-        .update({ last_visit_at: new Date().toISOString() })
-        .eq("id", userId);
-        
-      // 2. Insert into Historical Daily Logs (Unique per User per Day)
-      // Ensure "migration_user_visits.sql" has been run first!
-      await supabase
-        .from("user_visits")
-        .upsert(
-          { 
-            user_id: userId, 
-            visit_date: today 
-          }, 
-          { onConflict: 'user_id,visit_date' }
-        );
+      // Save immediately to prevent race conditions during rapid reloads
+      localStorage.setItem(storageKey, "true");
 
-      // Save to sessionStorage to skip on future page changes during this tab session
-      sessionStorage.setItem(storageKey, "true");
+      // Defer the heavy DB writes by 3.5 seconds to let videos and UI load fast
+      setTimeout(async () => {
+        try {
+          // 1. Update Profile (Last Seen status)
+          await supabase
+            .from("profiles")
+            .update({ last_visit_at: new Date().toISOString() })
+            .eq("id", userId);
+            
+          // 2. Insert into Historical Daily Logs (Unique per User per Day)
+          // Ensure "migration_user_visits.sql" has been run first!
+          await supabase
+            .from("user_visits")
+            .upsert(
+              { 
+                user_id: userId, 
+                visit_date: today 
+              }, 
+              { onConflict: 'user_id,visit_date' }
+            );
+        } catch (err) {
+          console.error("Visit log failed during background sync:", err);
+          // If it fails, remove the key so it tries again next time
+          localStorage.removeItem(storageKey);
+        }
+      }, 3500);
+
     } catch (err) {
-      console.error("Visit log failed:", err);
+      console.error("Visit log setup failed:", err);
     }
   }
 

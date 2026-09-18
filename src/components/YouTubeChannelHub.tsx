@@ -586,11 +586,6 @@ export default function YouTubeChannelHub() {
       
       if (!res.ok) {
         fetchedRef.current.delete(cacheKey);
-        const hasCachedItems = prev => {
-          // This isn't easily accessible without prev state, but since we are relying on fetch, 
-          // let's check contentCache directly.
-          return contentCache[channel.channel_id]?.[tab]?.[pId]?.items?.length > 0;
-        };
         if (!contentCache[channel.channel_id]?.[tab]?.[pId]?.items?.length) {
           const serverDetails = typeof data?.details === "string"
             ? data.details

@@ -39,6 +39,16 @@ export function usePushNotifications(session: any) {
   const syncSubscription = useCallback(async (subscription: any, provider = 'web-push') => {
     if (!session?.access_token) return;
     
+    // Prevent syncing on every single page load across tabs
+    const syncKey = `push_sync_${session.user.id}_${provider}`;
+    const lastSync = localStorage.getItem(syncKey);
+    const now = Date.now();
+    // Only sync once every 24 hours
+    if (lastSync && (now - parseInt(lastSync, 10) < 86400000)) {
+      setPushEnabled(true);
+      return;
+    }
+
     setIsSyncing(true);
     try {
       console.log(`[PushDiag] Proactively syncing ${provider} registration to server...`);
@@ -59,6 +69,7 @@ export function usePushNotifications(session: any) {
 
         if (res.ok) {
           setPushEnabled(true);
+          localStorage.setItem(syncKey, now.toString());
           console.log(`[PushDiag] Auto-sync success (${provider}).`);
           synced = true;
           break;
@@ -84,7 +95,7 @@ export function usePushNotifications(session: any) {
     } finally {
       setIsSyncing(false);
     }
-  }, [session?.access_token]);
+  }, [session?.access_token, session?.user?.id]);
 
   const checkStatus = useCallback(async () => {
     if (typeof window === 'undefined') return;
