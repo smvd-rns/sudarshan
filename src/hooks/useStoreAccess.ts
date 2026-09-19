@@ -57,26 +57,25 @@ function readCachedAccess(currentUserId?: string): { hasAccess: boolean; isAdmin
 
 export function useStoreAccess(session: any) {
   const currentUserId = session?.user?.id;
-  const isMemoryCached = globalStoreAccessCache && (currentUserId ? globalStoreAccessCache.userId === currentUserId : true);
 
-  const [hasStoreAccess, setHasStoreAccess] = useState<boolean>(() => {
-    if (isMemoryCached && globalStoreAccessCache) {
-      return globalStoreAccessCache.hasAccess;
-    }
-    const cached = readCachedAccess(currentUserId);
-    return cached ? cached.hasAccess : false;
-  });
-
-  const [isStoreAdmin, setIsStoreAdmin] = useState<boolean>(() => {
-    if (isMemoryCached && globalStoreAccessCache) {
-      return globalStoreAccessCache.isAdmin;
-    }
-    const cached = readCachedAccess(currentUserId);
-    return cached ? cached.isAdmin : false;
-  });
+  const [hasStoreAccess, setHasStoreAccess] = useState<boolean>(false);
+  const [isStoreAdmin, setIsStoreAdmin] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
+
+    // Synchronously set cached values after mount to avoid SSR hydration mismatch
+    const isMemoryCached = globalStoreAccessCache && (currentUserId ? globalStoreAccessCache.userId === currentUserId : true);
+    if (isMemoryCached && globalStoreAccessCache) {
+      setHasStoreAccess(globalStoreAccessCache.hasAccess);
+      setIsStoreAdmin(globalStoreAccessCache.isAdmin);
+    } else {
+      const cached = readCachedAccess(currentUserId);
+      if (cached) {
+        setHasStoreAccess(cached.hasAccess);
+        setIsStoreAdmin(cached.isAdmin);
+      }
+    }
 
     if (!session || !currentUserId) {
       return;
