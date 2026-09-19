@@ -194,6 +194,7 @@ export default function YouTubeChannelHub() {
     const fetchChannels = async () => {
       // 1. Instantly check any existing channels cache in localStorage BEFORE getSession or network call (0ms render)
       let hasLocalCache = false;
+
       try {
         if (typeof window !== "undefined") {
           for (let i = 0; i < localStorage.length; i++) {
@@ -233,8 +234,8 @@ export default function YouTubeChannelHub() {
         setLoadingChannels(true);
       }
 
+      // 2. Perform silent, non-blocking background fetch so new channels added by admin appear automatically
       try {
-        // Wrap getSession with a timeout so offline/unhealthy Supabase doesn't freeze the hub
         let session: any = null;
         try {
           const sessionPromise = supabase.auth.getSession();
@@ -250,7 +251,6 @@ export default function YouTubeChannelHub() {
         const userId = session?.user?.id || "guest";
         const storageKey = `channels_cache_v4_${userId}`;
 
-        // Fetch fresh channels from network in the background (stale-while-revalidate)
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
