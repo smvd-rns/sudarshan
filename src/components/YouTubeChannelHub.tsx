@@ -192,20 +192,33 @@ export default function YouTubeChannelHub() {
 
   useEffect(() => {
     const fetchChannels = async () => {
-      setLoadingChannels(true);
-
-      // 1. Instantly check any existing channels cache in localStorage BEFORE getSession or network call
+      // 1. Instantly check any existing channels cache in localStorage BEFORE getSession or network call (0ms render)
+      let hasLocalCache = false;
       try {
         if (typeof window !== "undefined") {
           for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.startsWith("channels_cache_v4_")) {
+            if (k && k.includes("channels_cache_")) {
               const item = localStorage.getItem(k);
               if (item) {
                 const parsed = JSON.parse(item);
                 if (parsed.channels?.length > 0) {
                   setChannels(parsed.channels);
                   setLoadingChannels(false);
+                  hasLocalCache = true;
+
+                  const urlChannelId = searchParams.get("channel");
+                  const urlPlaylistId = searchParams.get("playlist");
+                  const urlVideoId = searchParams.get("v");
+
+                  if (urlChannelId) {
+                    const found = parsed.channels.find((c: any) => c.channel_id === urlChannelId);
+                    if (found) {
+                      setActiveChannel(found);
+                      if (urlPlaylistId) setActivePlaylistId(urlPlaylistId);
+                      if (urlVideoId) setActiveVideoId(urlVideoId);
+                    }
+                  }
                   break;
                 }
               }
@@ -216,13 +229,17 @@ export default function YouTubeChannelHub() {
         console.warn("Pre-check channels cache error:", e);
       }
 
+      if (!hasLocalCache) {
+        setLoadingChannels(true);
+      }
+
       try {
         // Wrap getSession with a timeout so offline/unhealthy Supabase doesn't freeze the hub
         let session: any = null;
         try {
           const sessionPromise = supabase.auth.getSession();
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("getSession timeout")), 2500)
+            setTimeout(() => reject(new Error("getSession timeout")), 1200)
           );
           const resSession: any = await Promise.race([sessionPromise, timeoutPromise]);
           session = resSession?.data?.session || null;
@@ -232,46 +249,14 @@ export default function YouTubeChannelHub() {
 
         const userId = session?.user?.id || "guest";
         const storageKey = `channels_cache_v4_${userId}`;
-        
-        // 2. Try reading user-specific cache
-        try {
-          const rawCache = localStorage.getItem(storageKey);
-          if (rawCache) {
-            const parsed = JSON.parse(rawCache);
-            const isFresh = Date.now() - parsed.timestamp < 86400000;
-            if (parsed.channels?.length > 0) {
-              setChannels(parsed.channels);
-              setLoadingChannels(false);
-              
-              const urlChannelId = searchParams.get("channel");
-              const urlPlaylistId = searchParams.get("playlist");
-              const urlVideoId = searchParams.get("v");
 
-              if (urlChannelId) {
-                const found = parsed.channels.find((c: any) => c.channel_id === urlChannelId);
-                if (found) {
-                  setActiveChannel(found);
-                  if (urlPlaylistId) setActivePlaylistId(urlPlaylistId);
-                  if (urlVideoId) setActiveVideoId(urlVideoId);
-                }
-              }
-
-              if (isFresh) {
-                return;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Failed to read local channels cache:", e);
-        }
-
-        // 3. Fetch from network if cache is stale or missing
+        // Fetch fresh channels from network in the background (stale-while-revalidate)
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
 
-        const res = await fetch("/api/youtube/channels?v=3", { headers });
+        const res = await fetch("/api/youtube/channels?v=4", { headers });
         if (!res.ok) {
           throw new Error(`Channels API returned status ${res.status}`);
         }
