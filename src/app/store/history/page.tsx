@@ -86,6 +86,9 @@ export default function StoreHistory() {
             try {
               const parsed = JSON.parse(r.selected_variant);
               if (parsed && typeof parsed === "object") {
+                if (parsed.snapshot_item_name || parsed.item_name) {
+                  iName = parsed.snapshot_item_name || parsed.item_name;
+                }
                 if (parsed.isReimbursement) {
                   isReim = true;
                   iName = parsed.item_details || "Reimbursement Entry";

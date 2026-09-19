@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle, XCircle, Clock, Plus, Search, Building, 
   Calendar, ArrowUpDown, RotateCcw, Edit3, User, UserPlus, X, Check, 
   ShoppingBag, IndianRupee, Filter, History, Shield, FileText, Trash2, AlertTriangle, RefreshCw,
-  CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Copy
 } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
 import { parseItemVariants, ItemVariant } from "@/lib/store-variant-utils";
@@ -130,8 +130,16 @@ export default function StoreApprovals() {
       const prefix = session.user.email.split('@')[0];
       return prefix.charAt(0).toUpperCase() + prefix.slice(1);
     }
-    return "Store Manager";
   }, [storeUser, session]);
+
+  const [copiedQuickLink, setCopiedQuickLink] = useState(false);
+
+  const handleCopyQuickRequestLink = () => {
+    const link = `${window.location.origin}/store/quick-request`;
+    navigator.clipboard.writeText(link);
+    setCopiedQuickLink(true);
+    setTimeout(() => setCopiedQuickLink(false), 2500);
+  };
 
   // ---------------------------------------------------------------------------
   // TAB 1: Pending Approvals Search & Filter State
@@ -238,14 +246,23 @@ export default function StoreApprovals() {
     return vStr;
   };
 
-  const parseVariantMeta = (vStr?: string | null): { approvedBy?: string; source?: string } => {
+  const parseVariantMeta = (vStr?: string | null): { 
+    approvedBy?: string; 
+    source?: string;
+    snapshotItemName?: string;
+    snapshotItemCode?: string;
+    snapshotCost?: number;
+  } => {
     if (!vStr) return {};
     try {
       const parsed = JSON.parse(vStr);
       if (parsed && typeof parsed === "object") {
         return {
           approvedBy: parsed.approved_by || parsed.approvedBy,
-          source: parsed.source
+          source: parsed.source,
+          snapshotItemName: parsed.snapshot_item_name || parsed.item_name,
+          snapshotItemCode: parsed.snapshot_item_code || parsed.item_code,
+          snapshotCost: parsed.snapshot_cost !== undefined ? Number(parsed.snapshot_cost) : (parsed.cost !== undefined ? Number(parsed.cost) : undefined)
         };
       }
     } catch (e) {}
@@ -797,12 +814,13 @@ export default function StoreApprovals() {
 
     // Approved Requests
     approvedRequestsHistory.forEach(req => {
-      const itemCost = Number(req.store_items?.cost || 0);
-      const qty = Number(req.quantity || 1);
-      const isGuest = req.store_users?.full_name?.includes("(Guest)");
-
       const meta = parseVariantMeta(req.selected_variant);
       const cleanVariant = parseVariantLabel(req.selected_variant);
+
+      const itemName = meta.snapshotItemName || req.store_items?.item_name || "Item";
+      const itemCost = meta.snapshotCost !== undefined ? meta.snapshotCost : Number(req.store_items?.cost || 0);
+      const qty = Number(req.quantity || 1);
+      const isGuest = req.store_users?.full_name?.includes("(Guest)");
 
       let approvedBy = meta.approvedBy || (req as any).approved_by_name || (req as any).approved_by;
       if (!approvedBy || approvedBy === "Store Manager" || approvedBy === "Manager") {
@@ -819,7 +837,7 @@ export default function StoreApprovals() {
         userEmail: req.store_users?.email || "",
         userTemple: req.store_users?.temple || "N/A",
         storeAccessLevel: req.store_users?.store_access_level || "internal",
-        itemDetails: `${req.store_items?.item_name || "Item"}${cleanVariant ? ` (${cleanVariant})` : ''}`,
+        itemDetails: `${itemName}${cleanVariant ? ` (${cleanVariant})` : ''}`,
         quantity: qty,
         amount: itemCost ? itemCost * qty : 0,
         approvedBy,
@@ -1003,6 +1021,9 @@ export default function StoreApprovals() {
 
       const updatedVariantJSON = JSON.stringify({
         variant: cleanVar,
+        snapshot_item_name: existingMeta.snapshotItemName || targetReq?.store_items?.item_name || "Item",
+        snapshot_item_code: existingMeta.snapshotItemCode || targetReq?.store_items?.item_code || "",
+        snapshot_cost: existingMeta.snapshotCost !== undefined ? existingMeta.snapshotCost : Number(targetReq?.store_items?.cost || 0),
         approved_by: managerName,
         source: existingMeta.source || (targetReq?.store_users?.full_name?.includes("(Guest)") ? 'Guest Entry' : 'Self Request')
       });
@@ -1119,6 +1140,9 @@ export default function StoreApprovals() {
               request_date: addUserRequestDate || undefined,
               selected_variant: JSON.stringify({
                 variant: item.selected_variant || "",
+                snapshot_item_name: item.item_name,
+                snapshot_item_code: item.item_code,
+                snapshot_cost: item.cost,
                 source: "Added by Manager"
               })
             })
@@ -1180,6 +1204,9 @@ export default function StoreApprovals() {
           request_date: guestRequestDate || undefined,
           selected_variant: JSON.stringify({
             variant: firstItem.selected_variant || "",
+            snapshot_item_name: firstItem.item_name,
+            snapshot_item_code: firstItem.item_code,
+            snapshot_cost: firstItem.cost,
             source: "Guest Entry"
           })
         })
@@ -1212,6 +1239,9 @@ export default function StoreApprovals() {
                 request_date: guestRequestDate || undefined,
                 selected_variant: JSON.stringify({
                   variant: item.selected_variant || "",
+                  snapshot_item_name: item.item_name,
+                  snapshot_item_code: item.item_code,
+                  snapshot_cost: item.cost,
                   source: "Guest Entry"
                 })
               })
@@ -1286,25 +1316,47 @@ export default function StoreApprovals() {
   return (
     <div className="w-full pb-16 space-y-6">
       {/* ─── Page Header Bar ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-black font-outfit text-slate-800 flex items-center gap-2 sm:gap-3">
-            <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-devo-600 shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-black font-outfit text-slate-800 flex items-center gap-2.5">
+            <Clock className="w-6 h-6 sm:w-7 sm:h-7 text-amber-600 shrink-0" />
             <span>Store Approvals & Master History</span>
           </h1>
+          <p className="text-xs text-slate-500 mt-1 font-medium">
+            Manage pending store requests, add requests for users or guests, or view master audit logs.
+          </p>
         </div>
 
-        {/* Tab Switcher & Quick Add / Refresh Buttons */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+        {/* Header Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleCopyQuickRequestLink}
+            className="px-3.5 py-2 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
+            title="Copy Quick Request page link (no login) to share with specific users"
+          >
+            {copiedQuickLink ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-teal-600 stroke-[3]" />
+                <span className="text-teal-700 font-black">Link Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-teal-600" />
+                <span>Copy Public Link</span>
+              </>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={handleRefreshData}
             disabled={isRefreshing}
-            className="px-3 sm:px-3.5 py-2 sm:py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
+            className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
             title="Refresh Table Data"
           >
-            <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
 
           {activeTab === "pending" && (
@@ -1317,10 +1369,10 @@ export default function StoreApprovals() {
                   setAddUserRequestDate(new Date().toISOString().split('T')[0]);
                   setIsAddUserModalOpen(true);
                 }}
-                className="px-3.5 py-2 sm:py-2.5 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>+ Add Request for User</span>
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Add User Request</span>
               </button>
 
               <button
@@ -1333,10 +1385,10 @@ export default function StoreApprovals() {
                   setGuestRequestDate(new Date().toISOString().split('T')[0]);
                   setIsGuestModalOpen(true);
                 }}
-                className="col-span-2 sm:col-span-1 px-3.5 py-2 sm:py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
+                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
               >
-                <UserPlus className="w-4 h-4" />
-                <span>+ Add Request for Guest</span>
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Add Guest Request</span>
               </button>
             </>
           )}

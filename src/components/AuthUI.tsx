@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Loader2, AlertCircle, Globe } from "lucide-react";
+import { Loader2, AlertCircle, Globe, ShoppingBag } from "lucide-react";
 
 interface AuthUIProps {
   redirectTo?: string;
@@ -86,6 +86,16 @@ export default function AuthUI({ redirectTo = "/admin" }: AuthUIProps) {
           <p className="text-center text-[8px] sm:text-[10px] text-slate-300 font-bold uppercase tracking-[0.3em]">
             Official Devotional Admin
           </p>
+
+          <div className="pt-2 text-center">
+            <a
+              href="/store/quick-request"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold rounded-xl text-xs transition-all shadow-2xs"
+            >
+              <ShoppingBag className="w-4 h-4 text-teal-600" />
+              <span>Samvardhan Quick Request (No Login Required)</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>

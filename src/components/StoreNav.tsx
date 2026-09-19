@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingCart, History, User, ShieldCheck, Clock, Package, IndianRupee, Users } from "lucide-react";
+import { ShoppingCart, History, User, ShieldCheck, Clock, Package, IndianRupee, Users, ShoppingBag } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
 
 export default function StoreNav() {

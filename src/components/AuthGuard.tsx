@@ -220,7 +220,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   function handleRedirect(currentSession: any) {
     if (checkingDb) return;
 
-    const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb";
+    const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request");
     
     if (dbOffline) {
       if (pathname !== "/") {
@@ -262,7 +262,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb";
+  const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request");
 
   // 1. Loading States (Centralized)
   const isChecking = checkingDb || authLoading || (session && profileLoading && !dbOffline);

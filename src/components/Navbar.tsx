@@ -71,7 +71,7 @@ export default function Navbar() {
   const isAttendance = pathname === "/attendance";
   const isIdkt = pathname === "/iskcon-desire-tree";
 
-  if (pathname === "/login" || pathname === "/register/bcdb") {
+  if (pathname === "/login" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request")) {
     return null;
   }
 

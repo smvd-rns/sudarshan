@@ -79,6 +79,11 @@ export function useStoreAuth() {
 
 export default function StoreGuard({ children }: { children: React.ReactNode }) {
   const { storeUser, loading, error } = useStoreAuth();
+  const router = useRouter();
+
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/store/quick-request")) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-10 h-10 animate-spin text-devo-500" /></div>;

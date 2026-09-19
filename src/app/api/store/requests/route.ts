@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getUserFromToken } from '@/lib/auth-utils';
+import { getVariantCost } from '@/lib/store-variant-utils';
 
 async function checkIsAdmin(userId: string) {
   const { data: storeUser } = await supabaseIdktAdmin!
@@ -121,11 +122,45 @@ export async function POST(request: Request) {
       }
     }
 
+    // Look up store item for snapshotting name and price
+    const { data: storeItem } = await supabaseIdktAdmin!
+      .from('store_items')
+      .select('item_code, item_name, cost, variants')
+      .eq('id', item_id)
+      .maybeSingle();
+
+    const rawVariant = selected_variant || "";
+    let cleanVar = rawVariant;
+    let approvedBy = undefined;
+    let source = target_user_id ? "Added by Manager" : (is_guest ? "Guest Entry" : "Self Request");
+
+    if (typeof rawVariant === "string" && rawVariant.startsWith('{') && rawVariant.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(rawVariant);
+        if (parsed && typeof parsed === "object") {
+          cleanVar = parsed.variant !== undefined ? parsed.variant : (parsed.label !== undefined ? parsed.label : rawVariant);
+          if (parsed.approved_by || parsed.approvedBy) approvedBy = parsed.approved_by || parsed.approvedBy;
+          if (parsed.source) source = parsed.source;
+        }
+      } catch (e) {}
+    }
+
+    const unitCost = storeItem ? getVariantCost(cleanVar, storeItem.variants, Number(storeItem.cost) || 0) : 0;
+
+    const variantPayload = JSON.stringify({
+      variant: cleanVar,
+      snapshot_item_name: storeItem?.item_name || "Item",
+      snapshot_item_code: storeItem?.item_code || "",
+      snapshot_cost: unitCost,
+      approved_by: approvedBy,
+      source: source
+    });
+
     const insertPayload: any = {
       user_id: requestUserId,
       item_id,
       quantity: Number(quantity) || 1,
-      selected_variant: selected_variant || null,
+      selected_variant: variantPayload,
       status: 'pending'
     };
 
@@ -176,8 +211,39 @@ export async function PATCH(request: Request) {
     const updatePayload: any = { updated_at: new Date().toISOString() };
     if (status) updatePayload.status = status;
     if (quantity !== undefined) updatePayload.quantity = Number(quantity);
-    if (selected_variant !== undefined) updatePayload.selected_variant = selected_variant;
     if (item_id) updatePayload.item_id = item_id;
+
+    if (status === 'approved' || selected_variant !== undefined) {
+      let payloadObj: any = {};
+      let cleanVar = selected_variant || "";
+      if (typeof selected_variant === "string" && selected_variant.startsWith('{') && selected_variant.endsWith('}')) {
+        try {
+          payloadObj = JSON.parse(selected_variant);
+          cleanVar = payloadObj.variant !== undefined ? payloadObj.variant : selected_variant;
+        } catch (e) {}
+      } else if (typeof selected_variant === "object" && selected_variant !== null) {
+        payloadObj = selected_variant;
+        cleanVar = payloadObj.variant || "";
+      }
+
+      // Snapshot current store item name, item code, and variant cost at the exact moment of approval
+      const targetReqId = id;
+      const { data: existingReq } = await supabaseIdktAdmin!
+        .from('store_requests')
+        .select('item_id, selected_variant, store_items (item_code, item_name, cost, variants)')
+        .eq('id', targetReqId)
+        .maybeSingle();
+
+      const sItem = (existingReq as any)?.store_items;
+      if (sItem) {
+        payloadObj.snapshot_item_name = sItem.item_name;
+        payloadObj.snapshot_item_code = sItem.item_code;
+        payloadObj.snapshot_cost = getVariantCost(cleanVar, sItem.variants, Number(sItem.cost) || 0);
+      }
+
+      payloadObj.variant = cleanVar;
+      updatePayload.selected_variant = JSON.stringify(payloadObj);
+    }
 
     const { data, error } = await supabaseIdktAdmin!
       .from('store_requests')
