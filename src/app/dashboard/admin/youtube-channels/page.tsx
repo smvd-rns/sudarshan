@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Search, Plus, Trash2, Edit3, Globe, Save, RefreshCw, Upload, X, Check } from "lucide-react";
+import { Search, Plus, Trash2, Edit3, Globe, Save, RefreshCw, Upload, X, Check, Zap, CheckCircle2, AlertCircle } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -27,6 +27,8 @@ export default function YouTubeAdmin() {
   const [activeItem, setActiveItem] = useState<Partial<Channel> | null>(null);
   const [fetching, setFetching] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [convertingLogos, setConvertingLogos] = useState(false);
+  const [conversionResult, setConversionResult] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
 
   useEffect(() => {
@@ -105,31 +107,59 @@ export default function YouTubeAdmin() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${activeItem?.channel_id || Date.now()}.${fileExt}`;
-      const { data, error } = await supabase.storage
-        .from('youtube-assets')
-        .upload(`logos/${fileName}`, file, { upsert: true });
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('youtube-assets')
-        .getPublicUrl(`logos/${fileName}`);
-
-      setActiveItem(prev => ({ ...prev, custom_logo: publicUrl }));
-    } catch (err) {
-      console.error(err);
-      alert("Upload failed");
-    } finally {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Str = event.target?.result as string;
+      if (base64Str) {
+        setActiveItem(prev => ({ ...prev, custom_logo: base64Str }));
+      }
       setUploading(false);
+    };
+    reader.onerror = () => {
+      alert("Failed to read image file");
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBulkConvertBase64Logos = async (force = false) => {
+    if (!session) {
+      alert("You must be logged in as an Admin");
+      return;
+    }
+    const message = force 
+      ? "Re-convert ALL 80+ channel logos into Base64 Data URIs?" 
+      : "Convert all channel URL logos (Google Drive, HTTP) into persistent Base64 Data URIs for 0ms instant loading?";
+      
+    if (!confirm(message)) return;
+
+    setConvertingLogos(true);
+    setConversionResult(null);
+    try {
+      const res = await fetch("/api/admin/youtube/convert-base64-logos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ force })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setConversionResult(data);
+        fetchChannels(session);
+      } else {
+        alert(data.error || "Base64 conversion failed");
+      }
+    } catch (err: any) {
+      alert("Error converting logos: " + (err.message || String(err)));
+    } finally {
+      setConvertingLogos(false);
     }
   };
 
@@ -186,18 +216,53 @@ export default function YouTubeAdmin() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 bg-slate-50 min-h-screen">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200 gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">YouTube Hub Manager</h1>
           <p className="text-slate-500 text-sm">Manage devotional channels and portal metadata</p>
         </div>
-        <button 
-          onClick={() => { setActiveItem({ is_active: true, banner_style: "linear-gradient(135deg, #f97316 0%, #fbbf24 100%)" }); setModalOpen(true); }}
-          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-md active:scale-95"
-        >
-          <Plus className="w-5 h-5" /> Add New Channel
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => handleBulkConvertBase64Logos(false)}
+            disabled={convertingLogos || loading}
+            className="flex items-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm cursor-pointer"
+            title="Convert all channel logos into instant Base64 data strings"
+          >
+            {convertingLogos ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Zap className="w-4 h-4" />
+            )}
+            <span>{convertingLogos ? "Converting Logos..." : "Convert Logos to Base64"}</span>
+          </button>
+
+          <button 
+            onClick={() => { setActiveItem({ is_active: true, banner_style: "linear-gradient(135deg, #f97316 0%, #fbbf24 100%)" }); setModalOpen(true); }}
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-md active:scale-95 text-sm cursor-pointer"
+          >
+            <Plus className="w-5 h-5" /> Add New Channel
+          </button>
+        </div>
       </div>
+
+      {conversionResult && (
+        <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl flex items-start justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-emerald-900 text-sm">Base64 Conversion Complete!</h3>
+              <p className="text-xs text-emerald-700 mt-1">
+                Successfully converted <strong>{conversionResult.convertedCount}</strong> channel logos to Base64 strings. 
+                {conversionResult.alreadyConvertedCount > 0 && ` (${conversionResult.alreadyConvertedCount} logos were already Base64)`}
+                {conversionResult.failedCount > 0 && ` (${conversionResult.failedCount} failed to fetch)`}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => setConversionResult(null)} className="text-emerald-700 hover:text-emerald-900 font-bold text-xs cursor-pointer">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-6">
         {loading ? (

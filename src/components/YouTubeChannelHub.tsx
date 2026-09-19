@@ -44,6 +44,8 @@ const tabs = [
   { id: "favorites", label: "Watch Later", icon: Clock },
 ];
 
+const BLUR_36_BYTE_DATA_URL = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4IDgiPjxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4=";
+
 const formatClockTime = (seconds: number) => {
   const total = Math.max(0, Math.floor(seconds || 0));
   const h = Math.floor(total / 3600);
@@ -197,7 +199,7 @@ export default function YouTubeChannelHub() {
         if (typeof window !== "undefined") {
           for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.startsWith("channels_cache_v3_")) {
+            if (k && k.startsWith("channels_cache_v4_")) {
               const item = localStorage.getItem(k);
               if (item) {
                 const parsed = JSON.parse(item);
@@ -229,7 +231,7 @@ export default function YouTubeChannelHub() {
         }
 
         const userId = session?.user?.id || "guest";
-        const storageKey = `channels_cache_v3_${userId}`;
+        const storageKey = `channels_cache_v4_${userId}`;
         
         // 2. Try reading user-specific cache
         try {
@@ -269,7 +271,7 @@ export default function YouTubeChannelHub() {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
 
-        const res = await fetch("/api/youtube/channels?v=2", { headers });
+        const res = await fetch("/api/youtube/channels?v=3", { headers });
         if (!res.ok) {
           throw new Error(`Channels API returned status ${res.status}`);
         }

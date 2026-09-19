@@ -10,7 +10,7 @@ import {
   Save, Trash2, ArrowRight, FileSpreadsheet, Download, CloudUpload,
   Search, Filter, ChevronLeft, ChevronRight, MoreVertical, Shield, UserCheck,
   Settings, Play, Clock, HardDrive, Plus, X, Activity, Grid, Calendar, Monitor, ArrowRightLeft, RotateCcw,
-  BookOpen, Check, RefreshCw
+  BookOpen, Check, RefreshCw, Zap
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import * as XLSX from "xlsx";
@@ -113,6 +113,8 @@ export default function AdminPanel() {
   const [isUploadingYt, setIsUploadingYt] = useState(false);
   const [syncingChannels, setSyncingChannels] = useState<Set<string>>(new Set());
   const [syncProgress, setSyncProgress] = useState<Record<string, { pages: number, total: number }>>({});
+  const [convertingLogos, setConvertingLogos] = useState(false);
+  const [conversionResult, setConversionResult] = useState<any>(null);
 
 
   // YouTube Channel Assignments
@@ -998,7 +1000,7 @@ export default function AdminPanel() {
               )}
 
               {/* YouTube Channels Card */}
-              {isSuperAdmin && (
+              {(isSuperAdmin || isManager) && (
                 <button
                   onClick={() => navigateToView("youtube-channels")}
                   className="group relative bg-white p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 border-slate-200 hover:border-indigo-600 shadow-xl hover:shadow-2xl transition-all duration-300 text-left overflow-hidden h-auto sm:h-[260px] flex sm:block items-center gap-4 sm:gap-0"
@@ -1835,14 +1837,14 @@ export default function AdminPanel() {
         )}
 
         {/* VIEW: YouTube Channel Management */}
-        {activeView === "youtube-channels" && isSuperAdmin && (
+        {activeView === "youtube-channels" && (isSuperAdmin || isManager) && (
           <div className="space-y-8 animate-in slide-in-from-left-4 duration-500 pb-20">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="space-y-1">
                 <h2 className="text-2xl sm:text-3xl font-black text-devo-950 tracking-tight">YouTube <span className="text-indigo-600">Hub</span></h2>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-0.5">Media Source Management</p>
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
                 <button
                   onClick={() => fetchYtChannels()}
                   className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all active:scale-95 shadow-sm"
@@ -1850,21 +1852,32 @@ export default function AdminPanel() {
                 >
                   <List className="w-4 h-4" />
                 </button>
-                  <button
-                    onClick={() => resetYtSyncStatus()}
-                    className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-all active:scale-95 shadow-sm border border-rose-100"
-                    title="Force Clear All Sync Statuses (Stuck Fix)"
-                  >
-                    <ArrowRightLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleRunGlobalSync}
-                    disabled={isRunningGlobalSync}
-                    className={`p-3 rounded-xl transition-all active:scale-95 shadow-sm border ${isRunningGlobalSync ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100'}`}
-                    title="Run Daily Incremental Sync for ALL Channels Now"
-                  >
-                    <Activity className={`w-4 h-4 ${isRunningGlobalSync ? 'animate-pulse' : ''}`} />
-                  </button>
+
+                <button
+                  onClick={() => handleBulkConvertBase64Logos(false)}
+                  disabled={convertingLogos || loadingYt}
+                  className="flex items-center gap-1.5 px-4 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer"
+                  title="Convert all channel logos into instant Base64 data strings"
+                >
+                  {convertingLogos ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  <span>{convertingLogos ? "Converting..." : "Convert Logos to Base64"}</span>
+                </button>
+
+                <button
+                  onClick={() => resetYtSyncStatus()}
+                  className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-all active:scale-95 shadow-sm border border-rose-100"
+                  title="Force Clear All Sync Statuses (Stuck Fix)"
+                >
+                  <ArrowRightLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleRunGlobalSync}
+                  disabled={isRunningGlobalSync}
+                  className={`p-3 rounded-xl transition-all active:scale-95 shadow-sm border ${isRunningGlobalSync ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100'}`}
+                  title="Run Daily Incremental Sync for ALL Channels Now"
+                >
+                  <Activity className={`w-4 h-4 ${isRunningGlobalSync ? 'animate-pulse' : ''}`} />
+                </button>
                 <button
                   onClick={() => { 
                     setActiveYtChannel({ 
@@ -1883,6 +1896,25 @@ export default function AdminPanel() {
                 </button>
               </div>
             </div>
+
+            {conversionResult && (
+              <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl flex items-start justify-between gap-4 animate-in fade-in duration-300">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-emerald-900 text-sm">Base64 Conversion Complete!</h3>
+                    <p className="text-xs text-emerald-700 mt-1">
+                      Successfully converted <strong>{conversionResult.convertedCount}</strong> channel logos to Base64 strings. 
+                      {conversionResult.alreadyConvertedCount > 0 && ` (${conversionResult.alreadyConvertedCount} logos were already Base64)`}
+                      {conversionResult.failedCount > 0 && ` (${conversionResult.failedCount} failed to fetch)`}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setConversionResult(null)} className="text-emerald-700 hover:text-emerald-900 font-bold text-xs cursor-pointer">
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {loadingYt ? (
@@ -3484,6 +3516,39 @@ export default function AdminPanel() {
   );
 
   // --- Helper Methods for YT Mgmt ---
+  async function handleBulkConvertBase64Logos(force = false) {
+    if (!session) return;
+    const message = force 
+      ? "Re-convert ALL 80+ channel logos into Base64 Data URIs?" 
+      : "Convert all channel URL logos (Google Drive, HTTP) into persistent Base64 Data URIs for 0ms instant loading?";
+      
+    if (!confirm(message)) return;
+
+    setConvertingLogos(true);
+    setConversionResult(null);
+    try {
+      const res = await fetch("/api/admin/youtube/convert-base64-logos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ force })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setConversionResult(data);
+        fetchYtChannels();
+      } else {
+        alert(data.error || "Base64 conversion failed");
+      }
+    } catch (err: any) {
+      alert("Error converting logos: " + (err.message || String(err)));
+    } finally {
+      setConvertingLogos(false);
+    }
+  }
+
   async function fetchYtChannels(silent = false) {
     const isSilent = silent || ytChannels.length > 0;
     if (!isSilent) setLoadingYt(true);

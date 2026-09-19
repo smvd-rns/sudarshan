@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
     // Helper function to optimize custom logo URLs (specifically Google Drive ones)
     const optimizeLogoUrl = (url: string | null) => {
       if (!url) return null;
+      if (url.startsWith("data:image/")) return url;
       if (url.includes("googleusercontent.com")) {
         if (!url.includes("=")) {
           return `${url}=s800`;
