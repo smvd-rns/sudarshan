@@ -8,7 +8,7 @@ import ProfileEdit from "./ProfileEdit";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
 import { useVmInchargeAccess } from "@/hooks/useVmInchargeAccess";
-import { useStoreAccess } from "@/hooks/useStoreAccess";
+import { useStoreAccess, clearStoreAccessCache } from "@/hooks/useStoreAccess";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -271,7 +271,7 @@ export default function Navbar() {
                     <div className="my-2 border-t border-slate-100" />
                     
                     <button 
-                      onClick={async () => { await supabase.auth.signOut(); window.location.href = "/"; }}
+                      onClick={async () => { clearStoreAccessCache(); await supabase.auth.signOut(); window.location.href = "/"; }}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 text-slate-400 hover:text-red-600 transition-all text-left group"
                     >
                       <LogOut className="w-4 h-4 transition-colors" />
@@ -499,7 +499,7 @@ export default function Navbar() {
               <div className="my-2 mx-4 border-t border-slate-100" />
 
               <button 
-                onClick={async () => { await supabase.auth.signOut(); window.location.href = "/"; }}
+                onClick={async () => { clearStoreAccessCache(); await supabase.auth.signOut(); window.location.href = "/"; }}
                 className="flex items-center gap-4 px-6 py-3.5 hover:bg-red-50 transition-all text-left group"
               >
                 <LogOut className="w-4 h-4 text-slate-300 group-hover:text-red-500 transition-colors" />

@@ -1808,43 +1808,50 @@ export default function StoreApprovals() {
                       : "bg-slate-50/90 border-l-4 border-l-amber-500 border-slate-300/80"
                   }`}
                 >
-                  {/* Top Line: Checkbox + Queue # + Devotee Name + Temple + Qty */}
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelectT1Request(req.id)}
-                        className="w-4 h-4 rounded border-slate-300 text-devo-600 focus:ring-devo-500 cursor-pointer shrink-0"
-                      />
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-devo-100 text-devo-900 font-bold font-mono text-[10px] shrink-0">
-                        #{queueNum}
-                      </span>
-                      <div className="font-bold text-slate-800 text-xs flex items-center gap-1 min-w-0">
-                        <span className="truncate">{req.store_users?.full_name || "Unknown"}</span>
-                        {(() => {
-                          const meta = parseVariantMeta(req.selected_variant);
-                          const source = meta.source || (isGuest ? 'Guest Entry' : 'Self Request');
-                          return (
-                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
-                              source === 'Guest Entry' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                              source === 'Added by Manager' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                              'bg-blue-100 text-blue-800 border border-blue-200'
-                            }`}>
-                              {source}
-                            </span>
-                          );
-                        })()}
+                  {/* Top Line: Checkbox + Queue # + Full Devotee Name (Prominent & Clear) + Qty Badge */}
+                  <div className="border-b border-slate-200/60 pb-2 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectT1Request(req.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-devo-600 focus:ring-devo-500 cursor-pointer shrink-0"
+                        />
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-devo-100 text-devo-900 font-bold font-mono text-[10px] shrink-0">
+                          #{queueNum}
+                        </span>
+                        <span className="font-bold text-slate-900 text-sm leading-tight text-left break-words">
+                          {req.store_users?.full_name || "Unknown"}
+                        </span>
                       </div>
+
+                      <span className="font-mono font-black text-black bg-slate-100 border border-slate-300 px-2.5 py-1 rounded-lg text-xs shadow-2xs shrink-0">
+                        Qty: <span className="font-black text-sm text-black">{req.quantity}</span>
+                      </span>
+                    </div>
+
+                    {/* Sub-row: Request Source Badge + Temple Name */}
+                    <div className="flex items-center gap-1.5 pl-6 flex-wrap">
+                      {(() => {
+                        const meta = parseVariantMeta(req.selected_variant);
+                        const source = meta.source || (isGuest ? 'Guest Entry' : 'Self Request');
+                        return (
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
+                            source === 'Guest Entry' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                            source === 'Added by Manager' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
+                            'bg-blue-100 text-blue-800 border border-blue-200'
+                          }`}>
+                            {source}
+                          </span>
+                        );
+                      })()}
                       {req.store_users?.temple && (
-                        <span className="text-[10px] text-slate-500 font-medium truncate shrink-0">
-                          ({req.store_users.temple})
+                        <span className="text-[10px] text-slate-600 font-semibold bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
+                          {req.store_users.temple}
                         </span>
                       )}
                     </div>
-                    <span className="font-mono font-black text-black bg-slate-100 border border-slate-300 px-2.5 py-1 rounded-lg text-xs sm:text-sm shadow-2xs shrink-0">
-                      Qty: <span className="font-black text-sm text-black">{req.quantity}</span>
-                    </span>
                   </div>
 
                   {/* Middle Line: Item Requested (Prominent!), Code, Variant & Last Issued */}
@@ -2318,9 +2325,9 @@ export default function StoreApprovals() {
                   </div>
 
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-800 text-sm truncate">{item.userName}</div>
-                      <div className="text-[11px] text-slate-500 truncate">{item.userEmail}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-slate-900 text-sm break-words">{item.userName}</div>
+                      <div className="text-[11px] text-slate-500 break-all">{item.userEmail}</div>
                       <div className="flex items-center gap-1.5 mt-1">
                         {item.userTemple && (
                           <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
