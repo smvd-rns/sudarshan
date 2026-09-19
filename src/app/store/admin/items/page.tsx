@@ -73,6 +73,7 @@ export default function StoreItemsAdmin() {
     { brand: "", size: "", cost: "", is_available: true }
   ]);
   const [isAdding, setIsAdding] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
 
   // Edit Item Modal State
   const [editingItem, setEditingItem] = useState<StoreItem | null>(null);
@@ -184,6 +185,7 @@ export default function StoreItemsAdmin() {
     if (res.ok) {
       setNewItemName("");
       setVariantRows([{ brand: "", size: "", cost: "", is_available: true }]);
+      setIsAddFormOpen(false);
       fetchItems();
     } else {
       const err = await res.json();
@@ -310,6 +312,7 @@ export default function StoreItemsAdmin() {
         is_available: true
       })));
     }
+    setIsAddFormOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -392,18 +395,45 @@ export default function StoreItemsAdmin() {
 
   return (
     <div className="w-full pb-12">
-      <h1 className="text-3xl font-black font-outfit text-slate-800 mb-6 flex items-center gap-3">
-        <Layers className="w-8 h-8 text-devo-600" />
-        Manage Store Items
-      </h1>
-        
-        {/* Add Item Form */}
-        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 mb-8">
+      {/* Header with Title & + Add New Item Toggle Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-black font-outfit text-slate-800 flex items-center gap-3">
+          <Layers className="w-7 h-7 sm:w-8 sm:h-8 text-devo-600" />
+          <span>Manage Store Items</span>
+        </h1>
+
+        <button
+          type="button"
+          onClick={() => setIsAddFormOpen(!isAddFormOpen)}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer ${
+            isAddFormOpen 
+              ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs"
+              : "bg-devo-600 hover:bg-devo-700 text-white shadow-devo-600/20"
+          }`}
+        >
+          {isAddFormOpen ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          <span>{isAddFormOpen ? "Close Add Form" : "+ Add New Item"}</span>
+        </button>
+      </div>
+
+      {/* Collapsible Add Item Form */}
+      {isAddFormOpen && (
+        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 mb-8 animate-in fade-in slide-in-from-top-3 duration-200">
           <h2 className="text-xl font-bold mb-6 text-slate-800 border-b border-slate-100 pb-3 flex items-center justify-between">
-            <span>Add New Item</span>
-            <span className="text-xs font-semibold text-slate-400">Store Catalog Management</span>
+            <span className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-devo-600" />
+              <span>Add New Item</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsAddFormOpen(false)}
+              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              title="Close form"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </h2>
-          
+
           <form onSubmit={handleAddItem} className="space-y-6">
             
             {/* Basic Item Info */}
@@ -526,7 +556,7 @@ export default function StoreItemsAdmin() {
                 <button 
                   type="button" 
                   onClick={addVariantRow} 
-                  className="w-full sm:w-auto justify-center px-3.5 py-2 bg-white text-devo-700 font-bold text-xs rounded-xl border border-devo-200 hover:bg-devo-50 hover:border-devo-300 flex items-center gap-2 shadow-2xs transition-all"
+                  className="w-full sm:w-auto justify-center px-3.5 py-2 bg-white text-devo-700 font-bold text-xs rounded-xl border border-devo-200 hover:bg-devo-50 hover:border-devo-300 flex items-center gap-2 shadow-2xs transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4 text-devo-600" />
                   + Add Another Variant Row
@@ -535,13 +565,14 @@ export default function StoreItemsAdmin() {
             </div>
 
             <div className="flex justify-end pt-1">
-              <button disabled={isAdding} type="submit" className="w-full sm:w-auto justify-center px-6 py-3 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-xl flex items-center gap-2 text-xs sm:text-sm shadow-md transition-all">
+              <button disabled={isAdding} type="submit" className="w-full sm:w-auto justify-center px-6 py-3 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-xl flex items-center gap-2 text-xs sm:text-sm shadow-md transition-all cursor-pointer">
                 {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 Save Store Item
               </button>
             </div>
           </form>
         </div>
+      )}
 
         {/* Existing Store Items Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden w-full">
