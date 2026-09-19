@@ -8,8 +8,28 @@ export interface ItemVariant {
 }
 
 /**
+ * Cleans unwanted 'Size ' or 'size ' prefixes from variant text strings.
+ * e.g., "Size Saffron" -> "Saffron"
+ *       "Size Regular" -> "Regular"
+ *       "Regular - Size 6" -> "Regular - 6"
+ */
+export function cleanVariantText(text: string | undefined): string {
+  if (!text) return "";
+  let cleaned = text.trim();
+  if (cleaned.toLowerCase() === "size") return cleaned;
+
+  // Remove leading "Size " or "size " prefix if followed by other text
+  cleaned = cleaned.replace(/^size\s+/i, "");
+
+  // Remove " - Size " or " - size " in middle of brand - size labels
+  cleaned = cleaned.replace(/(\s*-\s*)size\s+/gi, "$1");
+
+  return cleaned;
+}
+
+/**
  * Parses any raw variant data (strings, stringified JSON, or variant objects)
- * into a standardized ItemVariant[] array.
+ * into a standardized ItemVariant[] array with cleaned labels.
  */
 export function parseItemVariants(rawVariants: any, defaultCost: number = 0): ItemVariant[] {
   if (!rawVariants || !Array.isArray(rawVariants)) return [];
@@ -18,16 +38,17 @@ export function parseItemVariants(rawVariants: any, defaultCost: number = 0): It
 
   rawVariants.forEach((item, idx) => {
     if (typeof item === 'object' && item !== null) {
-      const sizeStr = item.size ? item.size.toString().trim() : undefined;
-      const brandStr = item.brand ? item.brand.toString().trim() : undefined;
+      const rawSize = item.size ? item.size.toString().trim() : undefined;
+      const rawBrand = item.brand ? item.brand.toString().trim() : undefined;
       
-      let label = item.label;
+      const sizeStr = rawSize ? cleanVariantText(rawSize) : undefined;
+      const brandStr = rawBrand ? cleanVariantText(rawBrand) : undefined;
+
+      let label = item.label ? cleanVariantText(item.label.toString()) : undefined;
       if (!label) {
         const parts = [];
         if (brandStr) parts.push(brandStr);
-        if (sizeStr) {
-          parts.push(sizeStr.toLowerCase().startsWith('size') ? sizeStr : `Size ${sizeStr}`);
-        }
+        if (sizeStr) parts.push(sizeStr);
         label = parts.join(" - ") || "Default Variant";
       }
 
@@ -50,14 +71,18 @@ export function parseItemVariants(rawVariants: any, defaultCost: number = 0): It
       if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
         try {
           const parsed = JSON.parse(trimmed);
-          const sizeStr = parsed.size ? parsed.size.toString().trim() : undefined;
-          const brandStr = parsed.brand ? parsed.brand.toString().trim() : undefined;
-          let label = parsed.label;
+          const rawSize = parsed.size ? parsed.size.toString().trim() : undefined;
+          const rawBrand = parsed.brand ? parsed.brand.toString().trim() : undefined;
+          
+          const sizeStr = rawSize ? cleanVariantText(rawSize) : undefined;
+          const brandStr = rawBrand ? cleanVariantText(rawBrand) : undefined;
+
+          let label = parsed.label ? cleanVariantText(parsed.label.toString()) : undefined;
           if (!label) {
             const parts = [];
             if (brandStr) parts.push(brandStr);
-            if (sizeStr) parts.push(sizeStr.toLowerCase().startsWith('size') ? sizeStr : `Size ${sizeStr}`);
-            label = parts.join(" - ") || trimmed;
+            if (sizeStr) parts.push(sizeStr);
+            label = parts.join(" - ") || cleanVariantText(trimmed);
           }
 
           result.push({
@@ -75,7 +100,7 @@ export function parseItemVariants(rawVariants: any, defaultCost: number = 0): It
       // Try parsing formatted string like "8 - 400" or "Bata Size 8 - 400" or "Size 8 (₹400)"
       const priceMatch = trimmed.match(/^(.*?)(?:(?:\s*[-:]\s*|(?:\s*\(\s*₹?\s*))(\d+(?:\.\d+)?)\s*\)?)$/);
       if (priceMatch) {
-        const mainPart = priceMatch[1].trim();
+        const mainPart = cleanVariantText(priceMatch[1].trim());
         const extractedPrice = parseFloat(priceMatch[2]);
         if (mainPart && !isNaN(extractedPrice)) {
           result.push({
@@ -91,7 +116,7 @@ export function parseItemVariants(rawVariants: any, defaultCost: number = 0): It
       // Fallback simple string variant
       result.push({
         id: `v-${idx}`,
-        label: trimmed,
+        label: cleanVariantText(trimmed),
         cost: defaultCost,
         is_available: true
       });
@@ -106,12 +131,20 @@ export function parseItemVariants(rawVariants: any, defaultCost: number = 0): It
  */
 export function getVariantCost(selectedVariant: string | null | undefined, rawVariants: any, defaultCost: number): number {
   if (!selectedVariant) return defaultCost;
+  const cleanedSelected = cleanVariantText(selectedVariant);
   const parsedVariants = parseItemVariants(rawVariants, defaultCost);
-  const match = parsedVariants.find(v => 
-    v.label === selectedVariant || 
-    `${v.label} (₹${v.cost})` === selectedVariant ||
-    (v.brand && v.size && `${v.brand} - Size ${v.size}` === selectedVariant)
-  );
+
+  const match = parsedVariants.find(v => {
+    const cleanedLabel = cleanVariantText(v.label);
+    return (
+      cleanedLabel === cleanedSelected ||
+      v.label === selectedVariant ||
+      `${v.label} (₹${v.cost})` === selectedVariant ||
+      `${cleanedLabel} (₹${v.cost})` === cleanedSelected ||
+      (v.brand && v.size && `${v.brand} - ${v.size}` === cleanedSelected) ||
+      (v.brand && v.size && `${v.brand} - Size ${v.size}` === selectedVariant)
+    );
+  });
   if (match && typeof match.cost === 'number') {
     return match.cost;
   }

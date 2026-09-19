@@ -145,7 +145,7 @@ export default function StoreItemsAdmin() {
         const brandStr = v.brand.trim();
         const parts = [];
         if (brandStr) parts.push(brandStr);
-        if (sizeStr) parts.push(sizeStr.toLowerCase().startsWith('size') ? sizeStr : `Size ${sizeStr}`);
+        if (sizeStr) parts.push(sizeStr);
         const label = parts.join(" - ") || sizeStr || brandStr;
         const parsedCost = parseFloat(v.cost);
         return {
@@ -224,7 +224,7 @@ export default function StoreItemsAdmin() {
         const brandStr = v.brand.trim();
         const parts = [];
         if (brandStr) parts.push(brandStr);
-        if (sizeStr) parts.push(sizeStr.toLowerCase().startsWith('size') ? sizeStr : `Size ${sizeStr}`);
+        if (sizeStr) parts.push(sizeStr);
         const label = parts.join(" - ") || sizeStr || brandStr;
         const parsedCost = parseFloat(v.cost);
         return {

@@ -152,7 +152,7 @@ export default function Navbar() {
               <div className="flex items-center justify-center relative">
                  <ShoppingCart className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-inherit">Store</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-inherit">Samvardhan</span>
             </NextLink>
           )}
 
@@ -333,12 +333,21 @@ export default function Navbar() {
         </NextLink>
 
 
-        <NextLink href="/iskcon-desire-tree" className="flex flex-col items-center gap-1 group flex-1">
-          <div className={`p-2 rounded-xl group-active:scale-95 transition-all ${isIdkt ? 'bg-devo-50 text-devo-600 shadow-inner' : 'text-slate-400'}`}>
-             <Music className="w-6 h-6" />
-          </div>
-          <span className={`text-[9px] font-black uppercase tracking-widest ${isIdkt ? 'text-devo-600' : 'text-slate-400'}`}>Desire Tree</span>
-        </NextLink>
+        {hasStoreAccess ? (
+          <NextLink href="/store/request" className="flex flex-col items-center gap-1 group flex-1">
+            <div className={`p-2 rounded-xl group-active:scale-95 transition-all ${isStore ? 'bg-devo-50 text-devo-600 shadow-inner' : 'text-slate-400'}`}>
+               <ShoppingCart className="w-6 h-6" />
+            </div>
+            <span className={`text-[9px] font-black uppercase tracking-widest ${isStore ? 'text-devo-600' : 'text-slate-400'}`}>Samvardhan</span>
+          </NextLink>
+        ) : (
+          <NextLink href="/iskcon-desire-tree" className="flex flex-col items-center gap-1 group flex-1">
+            <div className={`p-2 rounded-xl group-active:scale-95 transition-all ${isIdkt ? 'bg-devo-50 text-devo-600 shadow-inner' : 'text-slate-400'}`}>
+               <Music className="w-6 h-6" />
+            </div>
+            <span className={`text-[9px] font-black uppercase tracking-widest ${isIdkt ? 'text-devo-600' : 'text-slate-400'}`}>Desire Tree</span>
+          </NextLink>
+        )}
 
         <button 
           onClick={() => setShowMoreMenu(!showMoreMenu)}
@@ -446,13 +455,13 @@ export default function Navbar() {
 
               {hasStoreAccess && (
                 <NextLink 
-                  href="/store/request" 
+                  href="/iskcon-desire-tree" 
                   onClick={() => setShowMoreMenu(false)}
-                  className={`flex items-center gap-4 px-6 py-3.5 transition-all ${pathname.startsWith('/store') ? 'bg-teal-50/50' : 'hover:bg-slate-50'}`}
+                  className={`flex items-center gap-4 px-6 py-3.5 transition-all ${pathname === '/iskcon-desire-tree' ? 'bg-orange-50/50' : 'hover:bg-slate-50'}`}
                 >
-                  <ShoppingCart className={`w-4 h-4 ${pathname.startsWith('/store') ? 'text-teal-600' : 'text-slate-400'}`} />
-                  <span className={`text-[11px] font-black uppercase tracking-widest flex-1 ${pathname.startsWith('/store') ? 'text-teal-900' : 'text-slate-600'}`}>Store</span>
-                  <div className={`w-1.5 h-1.5 rounded-full bg-teal-500 ${pathname.startsWith('/store') ? 'opacity-100' : 'opacity-0'}`} />
+                  <Music className={`w-4 h-4 ${pathname === '/iskcon-desire-tree' ? 'text-orange-600' : 'text-slate-400'}`} />
+                  <span className={`text-[11px] font-black uppercase tracking-widest flex-1 ${pathname === '/iskcon-desire-tree' ? 'text-orange-900' : 'text-slate-600'}`}>Desire Tree</span>
+                  <div className={`w-1.5 h-1.5 rounded-full bg-orange-500 ${pathname === '/iskcon-desire-tree' ? 'opacity-100' : 'opacity-0'}`} />
                 </NextLink>
               )}
 

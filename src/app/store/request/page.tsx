@@ -23,6 +23,7 @@ import {
   AlertCircle,
   Filter,
   ArrowRight,
+  ArrowUpDown,
   LayoutList,
   LayoutGrid
 } from "lucide-react";
@@ -80,9 +81,10 @@ export default function StoreRequest() {
   const [guestTemple, setGuestTemple] = useState("");
   const [guestMobile, setGuestMobile] = useState("");
 
-  // Catalog item search & category filter
+  // Catalog item search, category filter, and sorting
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "General" | "Internal">("all");
+  const [sortBy, setSortBy] = useState<"code_asc" | "name_asc" | "name_desc">("code_asc");
 
   // Pagination state (10, 20, 30)
   const [page, setPage] = useState(1);
@@ -170,30 +172,37 @@ export default function StoreRequest() {
     return ["all", ...catList];
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchName = (item.item_name || "").toLowerCase().includes(q);
-        const matchCode = (item.item_code || "").toLowerCase().includes(q);
-        const matchCat = (item.category || "").toLowerCase().includes(q);
-        return matchName || matchCode || matchCat;
-      }
-      return true;
-    });
-  }, [items, searchQuery, categoryFilter]);
+  const filteredAndSortedItems = useMemo(() => {
+    return items
+      .filter(item => {
+        if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchName = (item.item_name || "").toLowerCase().includes(q);
+          const matchCode = (item.item_code || "").toLowerCase().includes(q);
+          const matchCat = (item.category || "").toLowerCase().includes(q);
+          return matchName || matchCode || matchCat;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === "code_asc") return (a.item_code || "").localeCompare(b.item_code || "", undefined, { numeric: true });
+        if (sortBy === "name_asc") return (a.item_name || "").localeCompare(b.item_name || "");
+        if (sortBy === "name_desc") return (b.item_name || "").localeCompare(a.item_name || "");
+        return 0;
+      });
+  }, [items, searchQuery, categoryFilter, sortBy]);
 
-  // Reset page to 1 when search query, category filter or page size changes
+  // Reset page to 1 when search query, category filter, sort option or page size changes
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, categoryFilter, pageSize]);
+  }, [searchQuery, categoryFilter, sortBy, pageSize]);
 
   // Paginated catalog items
   const paginatedItems = useMemo(() => {
     const startIndex = (page - 1) * pageSize;
-    return filteredItems.slice(startIndex, startIndex + pageSize);
-  }, [filteredItems, page, pageSize]);
+    return filteredAndSortedItems.slice(startIndex, startIndex + pageSize);
+  }, [filteredAndSortedItems, page, pageSize]);
 
   // Handle selecting variant for a specific card
   const setCardVariant = (itemId: string, variantLabel: string) => {
@@ -626,7 +635,7 @@ export default function StoreRequest() {
               <div className="flex items-center gap-3">
                 <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2 font-outfit">
                   <Package className="w-4 h-4 text-amber-600" />
-                  Store Item Catalog ({filteredItems.length})
+                  Store Item Catalog ({filteredAndSortedItems.length})
                 </h2>
 
                 {/* View Mode Switcher (List Default vs Grid) */}
@@ -660,24 +669,40 @@ export default function StoreRequest() {
                 </div>
               </div>
 
-              {/* Category Filter Pills */}
-              {availableCategories.length > 0 && (
-                <div className="flex items-center gap-1">
-                  {availableCategories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setCategoryFilter(cat as any)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
-                        categoryFilter === cat
-                          ? "bg-amber-600 text-white shadow-2xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {cat === "all" ? "All Items" : cat}
-                    </button>
-                  ))}
+              {/* Category Filter Pills & Sort Option */}
+              <div className="flex flex-wrap items-center gap-2">
+                {availableCategories.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {availableCategories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryFilter(cat as any)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
+                          categoryFilter === cat
+                            ? "bg-amber-600 text-white shadow-2xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {cat === "all" ? "All Items" : cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 shadow-2xs">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value as any)}
+                    className="bg-transparent outline-none cursor-pointer font-bold text-slate-800 text-[11px] sm:text-xs truncate"
+                  >
+                    <option value="code_asc">Sort: Code</option>
+                    <option value="name_asc">Sort: Name (A-Z)</option>
+                    <option value="name_desc">Sort: Name (Z-A)</option>
+                  </select>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Catalog Search Input */}
@@ -776,7 +801,7 @@ export default function StoreRequest() {
                 );
               })}
 
-              {filteredItems.length === 0 && (
+              {filteredAndSortedItems.length === 0 && (
                 <div className="bg-white p-8 text-center text-slate-400 font-medium rounded-2xl border border-slate-200 text-xs">
                   No store items found matching "{searchQuery}"
                 </div>
@@ -889,7 +914,7 @@ export default function StoreRequest() {
                 );
               })}
 
-              {filteredItems.length === 0 && (
+              {filteredAndSortedItems.length === 0 && (
                 <div className="col-span-full bg-white p-8 text-center text-slate-400 font-medium rounded-2xl border border-slate-200 text-xs">
                   No store items found matching "{searchQuery}"
                 </div>
@@ -902,7 +927,7 @@ export default function StoreRequest() {
             <PaginationControls
               currentPage={page}
               pageSize={pageSize}
-              totalItems={filteredItems.length}
+              totalItems={filteredAndSortedItems.length}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
               pageSizeOptions={[10, 20, 30]}
