@@ -301,19 +301,19 @@ export default function QuickStoreRequestPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-24">
+    <div className="min-h-screen bg-violet-50/50 pb-24">
       
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-teal-900 via-teal-800 to-teal-950 text-white pt-8 pb-12 px-4 shadow-md">
+      {/* Header Banner - Light Violet / Purple Theme */}
+      <div className="bg-gradient-to-r from-violet-900 via-purple-900 to-indigo-950 text-white pt-8 pb-12 px-4 shadow-md">
         <div className="max-w-7xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-2 bg-teal-800/80 border border-teal-600/40 text-teal-200 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-            <ShoppingBag className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2 bg-violet-800/60 border border-violet-500/30 text-violet-200 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+            <ShoppingBag className="w-3.5 h-3.5 text-violet-300" />
             <span>Samvardhan Direct Request</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-black font-outfit tracking-tight text-white">
-            Quick Store Item Request
+            Quick Request
           </h1>
-          <p className="text-xs sm:text-sm text-teal-100/80 max-w-2xl font-medium">
+          <p className="text-xs sm:text-sm text-violet-100/80 max-w-2xl font-medium">
             Select your name from the approved list, add store items, choose varieties & quantities, and submit your request.
           </p>
         </div>
@@ -325,13 +325,13 @@ export default function QuickStoreRequestPage() {
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-2 font-outfit">
-              <UserCheck className="w-4 h-4 text-teal-600" />
+              <UserCheck className="w-4 h-4 text-violet-600" />
               1. Select Your Approved Name *
             </label>
 
             {selectedUserObj && (
-              <span className="text-[10px] sm:text-xs font-bold bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <Check className="w-3.5 h-3.5 text-teal-600 stroke-[3]" />
+              <span className="text-[10px] sm:text-xs font-bold bg-violet-100 text-violet-800 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Check className="w-3.5 h-3.5 text-violet-600 stroke-[3]" />
                 {selectedUserObj.full_name}
               </span>
             )}
@@ -339,14 +339,14 @@ export default function QuickStoreRequestPage() {
 
           <div className="relative" ref={userDropdownRef}>
             {selectedUserObj ? (
-              <div className="bg-teal-50/80 border border-teal-300 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="bg-violet-50/80 border border-violet-300 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-teal-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-violet-600 text-white font-black text-xs flex items-center justify-center shrink-0">
                     {selectedUserObj.full_name[0].toUpperCase()}
                   </div>
                   <div className="truncate">
                     <div className="font-bold text-slate-900 text-xs sm:text-sm truncate">{selectedUserObj.full_name}</div>
-                    <div className="text-[10px] text-teal-700 font-semibold">Approved Store User</div>
+                    <div className="text-[10px] text-violet-700 font-semibold">Approved Store User</div>
                   </div>
                 </div>
 
@@ -356,7 +356,7 @@ export default function QuickStoreRequestPage() {
                     setSelectedUserId("");
                     setIsUserDropdownOpen(true);
                   }}
-                  className="px-3 py-1.5 text-xs font-bold text-teal-800 bg-white hover:bg-teal-100 rounded-lg border border-teal-200 shadow-2xs shrink-0 transition-colors"
+                  className="px-3 py-1.5 text-xs font-bold text-violet-800 bg-white hover:bg-violet-100 rounded-lg border border-violet-200 shadow-2xs shrink-0 transition-colors"
                 >
                   Change Name
                 </button>
@@ -373,7 +373,7 @@ export default function QuickStoreRequestPage() {
                     setUserSearchQuery(e.target.value);
                     setIsUserDropdownOpen(true);
                   }}
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium outline-none focus:border-teal-500 focus:bg-white transition-all shadow-2xs"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium outline-none focus:border-violet-500 focus:bg-white transition-all shadow-2xs"
                 />
                 {userSearchQuery && (
                   <button
@@ -389,7 +389,7 @@ export default function QuickStoreRequestPage() {
                   <div className="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl z-30 p-1.5 space-y-1 custom-scrollbar">
                     {loadingUsers ? (
                       <div className="p-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                        <Loader2 className="w-4 h-4 animate-spin text-violet-600" />
                         <span>Loading names...</span>
                       </div>
                     ) : filteredUsers.length === 0 ? (
@@ -402,10 +402,10 @@ export default function QuickStoreRequestPage() {
                             setSelectedUserId(u.id);
                             setIsUserDropdownOpen(false);
                           }}
-                          className="p-2.5 rounded-lg hover:bg-teal-50 cursor-pointer text-xs sm:text-sm font-bold text-slate-800 flex items-center justify-between transition-colors"
+                          className="p-2.5 rounded-lg hover:bg-violet-50 cursor-pointer text-xs sm:text-sm font-bold text-slate-800 flex items-center justify-between transition-colors"
                         >
                           <span>{u.full_name}</span>
-                          <span className="text-[10px] text-teal-600 bg-teal-50 px-2 py-0.5 rounded border border-teal-100">Approved</span>
+                          <span className="text-[10px] text-violet-600 bg-violet-50 px-2 py-0.5 rounded border border-violet-100">Approved</span>
                         </div>
                       ))
                     )}
@@ -440,7 +440,7 @@ export default function QuickStoreRequestPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2 font-outfit">
-                    <Package className="w-4 h-4 text-teal-600" />
+                    <Package className="w-4 h-4 text-violet-600" />
                     Store Items ({filteredAndSortedItems.length})
                   </h2>
 
@@ -449,7 +449,7 @@ export default function QuickStoreRequestPage() {
                       type="button"
                       onClick={() => setViewMode("list")}
                       className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                        viewMode === "list" ? "bg-white text-teal-700 shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
+                        viewMode === "list" ? "bg-white text-violet-700 shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
                       <LayoutList className="w-3.5 h-3.5" />
@@ -459,7 +459,7 @@ export default function QuickStoreRequestPage() {
                       type="button"
                       onClick={() => setViewMode("grid")}
                       className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                        viewMode === "grid" ? "bg-white text-teal-700 shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
+                        viewMode === "grid" ? "bg-white text-violet-700 shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
                       <LayoutGrid className="w-3.5 h-3.5" />
@@ -476,7 +476,7 @@ export default function QuickStoreRequestPage() {
                           key={cat}
                           onClick={() => setCategoryFilter(cat)}
                           className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
-                            categoryFilter === cat ? "bg-teal-700 text-white shadow-2xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            categoryFilter === cat ? "bg-violet-700 text-white shadow-2xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                         >
                           {cat === "all" ? "All Items" : cat}
@@ -508,7 +508,7 @@ export default function QuickStoreRequestPage() {
                   placeholder="Search catalog items..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-teal-500 focus:bg-white transition-all"
+                  className="w-full pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-violet-500 focus:bg-white transition-all"
                 />
                 {searchQuery && (
                   <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -521,7 +521,7 @@ export default function QuickStoreRequestPage() {
             {/* Catalog Items */}
             {loadingItems ? (
               <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-teal-600" />
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-violet-600" />
                 <p className="text-xs text-slate-500 mt-2 font-medium">Loading store item catalog...</p>
               </div>
             ) : paginatedItems.length === 0 ? (
@@ -537,10 +537,10 @@ export default function QuickStoreRequestPage() {
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-xl border border-slate-200/90 px-2.5 py-2 shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 hover:border-teal-400/80 transition-all group min-w-0"
+                      className="bg-white rounded-xl border border-slate-200/90 px-2.5 py-2 shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 hover:border-violet-400/80 transition-all group min-w-0"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-teal-700 transition-colors truncate">
+                        <div className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition-colors truncate">
                           {item.item_name}
                         </div>
                       </div>
@@ -550,7 +550,7 @@ export default function QuickStoreRequestPage() {
                           <select
                             value={selectedVarLabel}
                             onChange={e => setCardVariant(item.id, e.target.value)}
-                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-teal-500 cursor-pointer text-slate-800 truncate"
+                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
                           >
                             {parsedVariants.map((v, idx) => (
                               <option key={idx} value={v.label} disabled={v.is_available === false}>
@@ -564,7 +564,7 @@ export default function QuickStoreRequestPage() {
                       <button
                         type="button"
                         onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                        className="px-2.5 py-1 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                       >
                         <Plus className="w-3.5 h-3.5 stroke-[3]" />
                         <span>Add</span>
@@ -582,7 +582,7 @@ export default function QuickStoreRequestPage() {
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs hover:shadow-sm hover:border-teal-300 transition-all flex flex-col justify-between space-y-3"
+                      className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs hover:shadow-sm hover:border-violet-300 transition-all flex flex-col justify-between space-y-3"
                     >
                       <div>
                         <div className="font-bold text-slate-900 text-xs sm:text-sm">{item.item_name}</div>
@@ -594,7 +594,7 @@ export default function QuickStoreRequestPage() {
                           <select
                             value={selectedVarLabel}
                             onChange={e => setCardVariant(item.id, e.target.value)}
-                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-teal-500 cursor-pointer text-slate-800 truncate"
+                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
                           >
                             {parsedVariants.map((v, idx) => (
                               <option key={idx} value={v.label} disabled={v.is_available === false}>
@@ -608,7 +608,7 @@ export default function QuickStoreRequestPage() {
                       <button
                         type="button"
                         onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-98"
+                        className="w-full py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-98"
                       >
                         <Plus className="w-3.5 h-3.5 stroke-[3]" />
                         <span>Add to Request</span>
@@ -633,7 +633,7 @@ export default function QuickStoreRequestPage() {
             <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-800 text-sm font-outfit uppercase tracking-wide flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4 text-teal-600" />
+                  <ShoppingCart className="w-4 h-4 text-violet-600" />
                   Request Basket ({cartItems.length})
                 </h3>
 
@@ -657,7 +657,7 @@ export default function QuickStoreRequestPage() {
                       <div className="min-w-0 flex-1">
                         <div className="font-bold text-slate-900 text-xs truncate">{ci.item_name}</div>
                         {ci.selected_variant && (
-                          <div className="text-[10px] text-teal-700 font-semibold truncate">{ci.selected_variant}</div>
+                          <div className="text-[10px] text-violet-700 font-semibold truncate">{ci.selected_variant}</div>
                         )}
                       </div>
 
@@ -703,7 +703,7 @@ export default function QuickStoreRequestPage() {
                 className={`w-full py-3.5 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all ${
                   isSubmitting || cartItems.length === 0 || !selectedUserId
                     ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                    : "bg-teal-600 hover:bg-teal-700 text-white active:scale-98"
+                    : "bg-violet-600 hover:bg-violet-700 text-white active:scale-98"
                 }`}
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -718,21 +718,21 @@ export default function QuickStoreRequestPage() {
       {cartItems.length > 0 && (
         <div className="lg:hidden fixed bottom-4 left-3 right-3 z-40 bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-4 duration-300">
           <div className="flex items-center gap-2.5 min-w-0 pl-1">
-            <div className="w-9 h-9 rounded-xl bg-teal-500 text-slate-950 font-black text-xs flex items-center justify-center font-mono shrink-0 shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-violet-500 text-slate-950 font-black text-xs flex items-center justify-center font-mono shrink-0 shadow-xs">
               {cartItems.length}
             </div>
             <div className="truncate">
               <div className="text-xs font-bold text-white truncate">
                 {cartItems.length} {cartItems.length === 1 ? "Item" : "Items"} ({totalCartQty} total qty)
               </div>
-              <div className="text-[10px] text-teal-300 font-medium">Tap to review & submit</div>
+              <div className="text-[10px] text-violet-300 font-medium">Tap to review & submit</div>
             </div>
           </div>
 
           <button
             type="button"
             onClick={() => setIsMobileCartOpen(true)}
-            className="px-3.5 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md active:scale-95 transition-all shrink-0"
+            className="px-3.5 py-2 bg-violet-500 hover:bg-violet-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md active:scale-95 transition-all shrink-0"
           >
             <span>View & Submit</span>
             <ArrowRight className="w-4 h-4 stroke-[3]" />
@@ -748,7 +748,7 @@ export default function QuickStoreRequestPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
               <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-teal-600" />
+                <ShoppingCart className="w-5 h-5 text-violet-600" />
                 <h3 className="font-bold text-slate-800 text-base font-outfit">Selected Request List ({cartItems.length})</h3>
               </div>
 
@@ -793,7 +793,7 @@ export default function QuickStoreRequestPage() {
                       <div className="min-w-0 pr-6">
                         <div className="font-bold text-slate-800 text-xs truncate">{ci.item_name}</div>
                         {ci.selected_variant && (
-                          <span className="text-[9px] font-bold bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-mono">
+                          <span className="text-[9px] font-bold bg-violet-100 text-violet-800 px-1.5 py-0.2 rounded font-mono">
                             {ci.selected_variant}
                           </span>
                         )}
@@ -814,7 +814,7 @@ export default function QuickStoreRequestPage() {
                         <select
                           value={ci.selected_variant}
                           onChange={e => updateCartItemVariant(idx, e.target.value)}
-                          className="bg-white px-2 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:border-teal-500 w-full truncate text-slate-700"
+                          className="bg-white px-2 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:border-violet-500 w-full truncate text-slate-700"
                         >
                           {parsedVariants.map((v, vIdx) => (
                             <option key={vIdx} value={v.label} disabled={v.is_available === false}>
@@ -862,13 +862,13 @@ export default function QuickStoreRequestPage() {
 
             {/* Modal Footer Submit */}
             <div className="pt-3 border-t border-slate-200 space-y-3 shrink-0">
-              <div className="bg-teal-50/80 p-3 rounded-xl border border-teal-200/70 space-y-1">
+              <div className="bg-violet-50/80 p-3 rounded-xl border border-violet-200/70 space-y-1">
                 <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
                   <span>Total Request Items:</span>
                   <span className="font-bold text-slate-800">{cartItems.length} items ({totalCartQty} total qty)</span>
                 </div>
                 {selectedUserObj && (
-                  <div className="flex items-center justify-between text-xs text-teal-800 font-bold">
+                  <div className="flex items-center justify-between text-xs text-violet-800 font-bold">
                     <span>Requesting For:</span>
                     <span>{selectedUserObj.full_name}</span>
                   </div>
@@ -882,7 +882,7 @@ export default function QuickStoreRequestPage() {
                   await handlePublicSubmit();
                   setIsMobileCartOpen(false);
                 }}
-                className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
+                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
               >
                 {isSubmitting ? (
                   <>
@@ -906,14 +906,14 @@ export default function QuickStoreRequestPage() {
       {submittedReceipt && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-6 text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-14 h-14 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
             <div>
               <h3 className="font-black text-slate-900 text-xl font-outfit">Request Submitted!</h3>
               <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                Successfully submitted <span className="font-bold text-teal-800">{submittedReceipt.count} items</span> for{" "}
+                Successfully submitted <span className="font-bold text-violet-800">{submittedReceipt.count} items</span> for{" "}
                 <span className="font-bold text-slate-900">{submittedReceipt.userName}</span>. Your request has been queued for store admin approval.
               </p>
             </div>
@@ -926,7 +926,7 @@ export default function QuickStoreRequestPage() {
             <button
               type="button"
               onClick={() => setSubmittedReceipt(null)}
-              className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all"
+              className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all"
             >
               Done / Create Another Request
             </button>
