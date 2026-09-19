@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
+import { logStoreActivity } from '@/lib/store-logger';
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     // Verify user is an approved store user
     const { data: storeUser, error: uErr } = await supabaseIdktAdmin
       .from('store_users')
-      .select('id, store_access_level, is_store_admin, has_special_access')
+      .select('id, full_name, email, store_access_level, is_store_admin, has_special_access')
       .eq('id', user_id)
       .maybeSingle();
 
@@ -102,6 +103,15 @@ export async function POST(request: Request) {
       console.error("Error creating public store request:", insertErr);
       return NextResponse.json({ error: insertErr.message }, { status: 500 });
     }
+
+    await logStoreActivity({
+      user_id: user_id,
+      user_name: storeUser?.full_name || 'Quick Request User',
+      user_email: storeUser?.email || '',
+      action: 'PUBLIC_REQUEST_SUBMITTED',
+      details: `Submitted ${insertedData?.length || 0} item(s) via Public Quick Request page for ${storeUser?.full_name || 'user'}.`,
+      metadata: { count: insertedData?.length || 0 }
+    });
 
     return NextResponse.json({ success: true, count: insertedData?.length || 0, data: insertedData });
   } catch (err: any) {

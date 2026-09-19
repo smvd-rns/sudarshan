@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle, XCircle, Clock, Plus, Search, Building, 
   Calendar, ArrowUpDown, RotateCcw, Edit3, User, UserPlus, X, Check, 
   ShoppingBag, IndianRupee, Filter, History, Shield, FileText, Trash2, AlertTriangle, RefreshCw,
-  CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Copy
+  CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Copy, Download
 } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
 import { parseItemVariants, ItemVariant } from "@/lib/store-variant-utils";
@@ -146,6 +146,9 @@ export default function StoreApprovals() {
   // ---------------------------------------------------------------------------
   const [t1Search, setT1Search] = useState("");
   const [t1TempleFilter, setT1TempleFilter] = useState("all");
+  const [t1UserFilter, setT1UserFilter] = useState("all");
+  const [selectedT1RequestIds, setSelectedT1RequestIds] = useState<string[]>([]);
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
   const [t1SortBy, setT1SortBy] = useState<"fifo_asc" | "date_desc" | "name_asc" | "item_asc">("fifo_asc"); // Default 1st come 1st serve
   const [t1StartDate, setT1StartDate] = useState("");
   const [t1EndDate, setT1EndDate] = useState("");
@@ -730,6 +733,16 @@ export default function StoreApprovals() {
     return Array.from(set).sort();
   }, [requests]);
 
+  const uniqueT1Devotees = useMemo(() => {
+    const map = new Map<string, string>();
+    requests.forEach(r => {
+      if (r.user_id) {
+        map.set(r.user_id, r.store_users?.full_name || "Unknown Devotee");
+      }
+    });
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [requests]);
+
   const filteredT1Requests = useMemo(() => {
     let list = [...requests];
 
@@ -750,6 +763,11 @@ export default function StoreApprovals() {
     // Temple
     if (t1TempleFilter !== "all") {
       list = list.filter(r => (r.store_users?.temple || "") === t1TempleFilter);
+    }
+
+    // Devotee / User Filter
+    if (t1UserFilter !== "all") {
+      list = list.filter(r => r.user_id === t1UserFilter);
     }
 
     // Date Range
@@ -782,7 +800,7 @@ export default function StoreApprovals() {
     });
 
     return list;
-  }, [requests, t1Search, t1TempleFilter, t1SortBy, t1StartDate, t1EndDate]);
+  }, [requests, t1Search, t1TempleFilter, t1UserFilter, t1SortBy, t1StartDate, t1EndDate]);
 
   const paginatedT1Requests = useMemo(() => {
     const startIndex = (t1Page - 1) * t1PageSize;
@@ -791,19 +809,110 @@ export default function StoreApprovals() {
 
   useEffect(() => {
     setT1Page(1);
-  }, [t1Search, t1TempleFilter, t1SortBy, t1StartDate, t1EndDate, t1PageSize]);
+  }, [t1Search, t1TempleFilter, t1UserFilter, t1SortBy, t1StartDate, t1EndDate, t1PageSize]);
 
-  const hasT1ActiveFilters = t1Search.trim() !== "" || t1TempleFilter !== "all" || t1SortBy !== "fifo_asc" || t1StartDate !== "" || t1EndDate !== "";
+  const hasT1ActiveFilters = t1Search.trim() !== "" || t1TempleFilter !== "all" || t1UserFilter !== "all" || t1SortBy !== "fifo_asc" || t1StartDate !== "" || t1EndDate !== "";
 
   const clearT1Filters = () => {
     setT1Search("");
     setT1TempleFilter("all");
+    setT1UserFilter("all");
+    setSelectedT1RequestIds([]);
     setT1SortBy("fifo_asc");
     setT1StartDate("");
     setT1EndDate("");
     setT1DatePreset("all");
     setT1Page(1);
     setT1PageSize(20);
+  };
+
+  const handleSelectAllT1 = () => {
+    const currentPageIds = paginatedT1Requests.map(r => r.id);
+    const allSelected = currentPageIds.length > 0 && currentPageIds.every(id => selectedT1RequestIds.includes(id));
+    if (allSelected) {
+      setSelectedT1RequestIds(prev => prev.filter(id => !currentPageIds.includes(id)));
+    } else {
+      setSelectedT1RequestIds(prev => Array.from(new Set([...prev, ...currentPageIds])));
+    }
+  };
+
+  const toggleSelectT1Request = (id: string) => {
+    setSelectedT1RequestIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const [bulkConfirmModal, setBulkConfirmModal] = useState<{
+    isOpen: boolean;
+    action: 'approved' | 'rejected';
+    count: number;
+  } | null>(null);
+
+  const openBulkConfirmModal = (action: 'approved' | 'rejected') => {
+    if (selectedT1RequestIds.length === 0) return;
+    setBulkConfirmModal({
+      isOpen: true,
+      action,
+      count: selectedT1RequestIds.length
+    });
+  };
+
+  const executeBulkApproveOrReject = async (action: 'approved' | 'rejected') => {
+    setIsBulkActionLoading(true);
+    try {
+      const token = await getFreshToken();
+      if (!token) throw new Error("Session expired. Please refresh the page.");
+
+      const targetIds = [...selectedT1RequestIds];
+      const managerName = currentManagerName;
+
+      for (const id of targetIds) {
+        if (action === 'approved') {
+          const targetReq = requests.find(r => r.id === id);
+          const rawVariant = targetReq?.selected_variant || "";
+          const cleanVar = parseVariantLabel(rawVariant);
+          const existingMeta = parseVariantMeta(rawVariant);
+
+          const updatedVariantJSON = JSON.stringify({
+            variant: cleanVar,
+            snapshot_item_name: existingMeta.snapshotItemName || targetReq?.store_items?.item_name || "Item",
+            snapshot_item_code: existingMeta.snapshotItemCode || targetReq?.store_items?.item_code || "",
+            snapshot_cost: existingMeta.snapshotCost !== undefined ? existingMeta.snapshotCost : Number(targetReq?.store_items?.cost || 0),
+            approved_by: managerName,
+            source: existingMeta.source || (targetReq?.store_users?.full_name?.includes("(Guest)") ? 'Guest Entry' : 'Self Request')
+          });
+
+          await fetch('/api/store/requests', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              id,
+              status: 'approved',
+              selected_variant: updatedVariantJSON
+            })
+          });
+        } else {
+          await fetch(`/api/store/requests?id=${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        }
+      }
+
+      setRequests(prev => prev.filter(r => !targetIds.includes(r.id)));
+      setSelectedT1RequestIds([]);
+      setBulkConfirmModal(null);
+      if (action === 'approved') {
+        fetchApprovedRequestsHistory(token);
+      }
+    } catch (err: any) {
+      alert(err.message || "An error occurred during bulk operation");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -999,6 +1108,48 @@ export default function StoreApprovals() {
   const totalT2Amount = useMemo(() => {
     return filteredT2History.reduce((sum, item) => sum + (item.amount || 0), 0);
   }, [filteredT2History]);
+
+  const exportMasterHistoryCSV = () => {
+    if (!filteredT2History.length) return;
+    const headers = [
+      "Date & Time",
+      "Devotee Name",
+      "Email",
+      "Temple",
+      "Access Level",
+      "Type / Source",
+      "Item / Transaction Details",
+      "Quantity",
+      "Total Amount (INR)",
+      "Approved By"
+    ];
+
+    const rows = filteredT2History.map(item => {
+      const formattedDate = item.date ? new Date(item.date).toLocaleString("en-IN") : "";
+      return [
+        `"${formattedDate.replace(/"/g, '""')}"`,
+        `"${(item.userName || "").replace(/"/g, '""')}"`,
+        `"${(item.userEmail || "").replace(/"/g, '""')}"`,
+        `"${(item.userTemple || "N/A").replace(/"/g, '""')}"`,
+        `"${(item.storeAccessLevel || "internal").replace(/"/g, '""')}"`,
+        `"${(item.source || item.type).replace(/"/g, '""')}"`,
+        `"${(item.itemDetails || "").replace(/"/g, '""')}"`,
+        item.quantity || 1,
+        item.amount || 0,
+        `"${(item.approvedBy || "N/A").replace(/"/g, '""')}"`
+      ];
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `master_audit_history_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // ---------------------------------------------------------------------------
   // ACTIONS (APPROVE / REJECT / EDIT / ADD MULTI-ITEM REQUEST)
@@ -1465,7 +1616,7 @@ export default function StoreApprovals() {
 
           {/* Tab 1 Toolbar (Search, Temple, Date Range, Sort) */}
           <div className="flex flex-col gap-2.5 bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200/80">
-            {/* Top Row: Search, Temple, Sort */}
+            {/* Top Row: Search, Devotee Filter, Temple Filter, Sort */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-stretch lg:items-center gap-2">
               {/* Search Box */}
               <div className="relative lg:flex-1">
@@ -1482,6 +1633,21 @@ export default function StoreApprovals() {
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
+              </div>
+
+              {/* Devotee / User Filter */}
+              <div className="relative min-w-0">
+                <select
+                  value={t1UserFilter}
+                  onChange={e => setT1UserFilter(e.target.value)}
+                  className="w-full pl-8 pr-7 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-devo-500 appearance-none cursor-pointer"
+                >
+                  <option value="all">All Devotees ({uniqueT1Devotees.length})</option>
+                  {uniqueT1Devotees.map(([id, name]) => (
+                    <option key={id} value={id}>{name}</option>
+                  ))}
+                </select>
+                <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               {/* Temple Filter */}
@@ -1578,25 +1744,79 @@ export default function StoreApprovals() {
             </div>
           </div>
 
+          {/* Bulk Selection Action Bar */}
+          {selectedT1RequestIds.length > 0 && (
+            <div className="bg-amber-500/10 border border-amber-300 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white font-black text-xs font-mono">
+                  {selectedT1RequestIds.length}
+                </span>
+                <span className="text-xs font-bold text-slate-800">
+                  {selectedT1RequestIds.length} request(s) selected
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  disabled={isBulkActionLoading}
+                  onClick={() => openBulkConfirmModal('approved')}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isBulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                  <span>Approve Selected ({selectedT1RequestIds.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isBulkActionLoading}
+                  onClick={() => openBulkConfirmModal('rejected')}
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isBulkActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                  <span>Reject Selected ({selectedT1RequestIds.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isBulkActionLoading}
+                  onClick={() => setSelectedT1RequestIds([])}
+                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer"
+                >
+                  Deselect All
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Pending Requests List: Mobile Compact Card View */}
           <div className="block md:hidden space-y-2.5">
             {paginatedT1Requests.map((req, idx) => {
               const isGuest = req.store_users?.full_name?.includes("(Guest)");
               const queueNum = (t1Page - 1) * t1PageSize + idx + 1;
               const isEven = idx % 2 === 0;
+              const isSelected = selectedT1RequestIds.includes(req.id);
 
               return (
                 <div
                   key={req.id}
                   className={`rounded-xl border p-2.5 shadow-2xs space-y-2 transition-colors ${
-                    isEven
+                    isSelected
+                      ? "bg-amber-50/80 border-2 border-amber-500"
+                      : isEven
                       ? "bg-white border-l-4 border-l-devo-600 border-slate-200/90"
                       : "bg-slate-50/90 border-l-4 border-l-amber-500 border-slate-300/80"
                   }`}
                 >
-                  {/* Top Line: Queue # + Devotee Name + Temple + Qty */}
+                  {/* Top Line: Checkbox + Queue # + Devotee Name + Temple + Qty */}
                   <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectT1Request(req.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-devo-600 focus:ring-devo-500 cursor-pointer shrink-0"
+                      />
                       <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-devo-100 text-devo-900 font-bold font-mono text-[10px] shrink-0">
                         #{queueNum}
                       </span>
@@ -1706,6 +1926,15 @@ export default function StoreApprovals() {
             <table className="w-full text-left border-collapse min-w-[750px]">
               <thead className="bg-slate-100/70 border-b border-slate-200">
                 <tr>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={paginatedT1Requests.length > 0 && paginatedT1Requests.every(r => selectedT1RequestIds.includes(r.id))}
+                      onChange={handleSelectAllT1}
+                      className="w-4 h-4 rounded border-slate-300 text-devo-600 focus:ring-devo-500 cursor-pointer"
+                      title="Select All on this page"
+                    />
+                  </th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase text-center w-12"># Queue</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase">Devotee / Guest</th>
                   <th className="p-4 text-xs font-bold text-slate-500 uppercase">Item Requested</th>
@@ -1718,9 +1947,18 @@ export default function StoreApprovals() {
                 {paginatedT1Requests.map((req, idx) => {
                   const isGuest = req.store_users?.full_name?.includes("(Guest)");
                   const queueNum = (t1Page - 1) * t1PageSize + idx + 1;
+                  const isSelected = selectedT1RequestIds.includes(req.id);
 
                   return (
-                    <tr key={req.id} className="border-b border-slate-100 hover:bg-slate-50/80 transition-colors">
+                    <tr key={req.id} className={`border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${isSelected ? 'bg-amber-50/60' : ''}`}>
+                      <td className="p-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectT1Request(req.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-devo-600 focus:ring-devo-500 cursor-pointer"
+                        />
+                      </td>
                       <td className="p-4 text-center">
                         <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-bold font-mono text-xs">
                           #{queueNum}
@@ -1874,6 +2112,17 @@ export default function StoreApprovals() {
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-devo-600 ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={exportMasterHistoryCSV}
+                disabled={!filteredT2History.length}
+                className="px-3 py-1.5 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-xl flex items-center gap-1.5 text-xs shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                title="Export Master Audit History to CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
               </button>
 
               <span className="bg-devo-50 text-devo-950 border border-devo-200/80 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-2xs">
@@ -3224,6 +3473,68 @@ export default function StoreApprovals() {
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs sm:text-sm transition-colors shadow-2xs flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {isDeletingT2 ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Bulk Confirm Modal Popup */}
+      {bulkConfirmModal?.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            {/* Icon & Header */}
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${
+                bulkConfirmModal.action === 'approved' 
+                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-emerald-600/10'
+                  : 'bg-rose-50 text-rose-600 border border-rose-200 shadow-rose-600/10'
+              }`}>
+                {bulkConfirmModal.action === 'approved' ? (
+                  <CheckCircle className="w-8 h-8" />
+                ) : (
+                  <XCircle className="w-8 h-8" />
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight font-outfit">
+                  {bulkConfirmModal.action === 'approved' ? 'Approve Selected Requests?' : 'Reject Selected Requests?'}
+                </h3>
+                <p className="text-slate-500 text-xs mt-1.5 leading-relaxed font-medium">
+                  You are about to <span className={`font-bold ${bulkConfirmModal.action === 'approved' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {bulkConfirmModal.action === 'approved' ? 'APPROVE' : 'REJECT'}
+                  </span> <span className="inline-flex items-center px-2 py-0.5 rounded-full font-black text-xs font-mono bg-slate-100 text-slate-800 border border-slate-200">{bulkConfirmModal.count}</span> request(s) simultaneously.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setBulkConfirmModal(null)}
+                disabled={isBulkActionLoading}
+                className="px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all shadow-2xs cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkActionLoading}
+                onClick={() => executeBulkApproveOrReject(bulkConfirmModal.action)}
+                className={`px-4 py-2.5 rounded-2xl text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                  bulkConfirmModal.action === 'approved'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                }`}
+              >
+                {isBulkActionLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span>Confirm {bulkConfirmModal.action === 'approved' ? 'Approval' : 'Rejection'}</span>
+                )}
               </button>
             </div>
           </div>

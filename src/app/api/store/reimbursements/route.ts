@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getUserFromToken } from '@/lib/auth-utils';
+import { logStoreActivity } from '@/lib/store-logger';
 
 async function checkIsAdmin(userId: string) {
   const { data: storeUser } = await supabaseIdktAdmin!
@@ -125,6 +126,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await logStoreActivity({
+      user_id: user.id,
+      user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
+      user_email: user.email || '',
+      action: 'REIMBURSEMENT_ADDED',
+      details: `Added reimbursement of ₹${numAmount} for "${item_details}" (User: ${(data as any)?.store_users?.full_name || user_id}).`,
+      metadata: { reimbursement_id: data?.id, target_user_id: user_id, amount: numAmount, item_details }
+    });
+
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
@@ -153,6 +163,15 @@ export async function DELETE(request: Request) {
       .eq('id', id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await logStoreActivity({
+      user_id: user.id,
+      user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
+      user_email: user.email || '',
+      action: 'REIMBURSEMENT_DELETED',
+      details: `Deleted reimbursement record ID: ${id}.`,
+      metadata: { reimbursement_id: id }
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

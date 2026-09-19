@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingCart, History, User, ShieldCheck, Clock, Package, IndianRupee, Users, ShoppingBag } from "lucide-react";
+import { ShoppingCart, History, User, ShieldCheck, Clock, Package, IndianRupee, Users, Activity } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
 
 export default function StoreNav() {
@@ -18,6 +18,7 @@ export default function StoreNav() {
   const isItems = pathname === "/store/admin/items";
   const isReimbursements = pathname === "/store/admin/reimbursements";
   const isUsers = pathname === "/store/admin/users";
+  const isLogs = pathname === "/store/admin/logs";
 
   const canAccessApprovals = storeUser?.can_access_approvals ?? (storeUser?.is_store_admin || storeUser?.is_super_or_store_admin);
   const canAccessAdminPanel = storeUser?.can_access_admin_panel ?? storeUser?.is_super_or_store_admin;
@@ -136,6 +137,18 @@ export default function StoreNav() {
             >
               <Users className="w-3.5 h-3.5 text-amber-600" />
               <span>User Management</span>
+            </Link>
+
+            <Link
+              href="/store/admin/logs"
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap shrink-0 ${
+                isLogs
+                  ? "bg-amber-100 text-amber-900 border border-amber-300 shadow-xs"
+                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-amber-600" />
+              <span>Activity Logs</span>
             </Link>
           </div>
         )}

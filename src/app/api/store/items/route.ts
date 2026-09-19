@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getUserFromToken } from '@/lib/auth-utils';
+import { logStoreActivity } from '@/lib/store-logger';
 
 async function checkIsAdmin(userId: string) {
   const { data: storeUser } = await supabaseIdktAdmin!
@@ -149,6 +150,16 @@ export async function POST(request: Request) {
     }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await logStoreActivity({
+      user_id: user.id,
+      user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
+      user_email: user.email || '',
+      action: 'ITEM_CREATED',
+      details: `Created store item "${data?.item_name || item_name}" (Code: ${item_code}, Price: ₹${cost}).`,
+      metadata: { item_id: data?.id, item_code, item_name, cost, category }
+    });
+
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -204,6 +215,16 @@ export async function PUT(request: Request) {
     }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await logStoreActivity({
+      user_id: user.id,
+      user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
+      user_email: user.email || '',
+      action: 'ITEM_UPDATED',
+      details: `Updated store item "${data?.item_name || item_name}" (Code: ${item_code}, Price: ₹${cost}).`,
+      metadata: { item_id: id, item_code, item_name, cost, category }
+    });
+
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -234,6 +255,16 @@ export async function DELETE(request: Request) {
       .eq('id', id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await logStoreActivity({
+      user_id: user.id,
+      user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
+      user_email: user.email || '',
+      action: 'ITEM_DELETED',
+      details: `Deleted store item ID: ${id}.`,
+      metadata: { item_id: id }
+    });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

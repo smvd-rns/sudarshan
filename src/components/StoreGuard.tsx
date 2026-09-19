@@ -77,7 +77,7 @@ export function useStoreAuth() {
   return { storeUser, loading, error };
 }
 
-export default function StoreGuard({ children }: { children: React.ReactNode }) {
+export default function StoreGuard({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) {
   const { storeUser, loading, error } = useStoreAuth();
   const router = useRouter();
 
@@ -89,16 +89,21 @@ export default function StoreGuard({ children }: { children: React.ReactNode }) 
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-10 h-10 animate-spin text-devo-500" /></div>;
   }
 
-  if (error || !storeUser) {
+  const isAdminRequired = requiredRole === 'admin';
+  const hasAdminAccess = storeUser?.can_access_admin_panel || storeUser?.is_store_admin || storeUser?.is_super_or_store_admin;
+
+  if (error || !storeUser || (isAdminRequired && !hasAdminAccess)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="bg-white p-8 rounded-2xl shadow-sm text-center max-w-md w-full">
           <h1 className="text-2xl font-black text-red-600 mb-2">Access Denied</h1>
           <p className="text-slate-600 font-medium mb-6">
-            {error || "You do not have permission to view the store module."}
+            {isAdminRequired && !hasAdminAccess
+              ? "You need Store Admin privileges to access this page."
+              : (error || "You do not have permission to view the store module.")}
           </p>
-          <a href="/" className="inline-block px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">
-            Return to Dashboard
+          <a href="/store" className="inline-block px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">
+            Return to Store
           </a>
         </div>
       </div>

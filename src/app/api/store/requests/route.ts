@@ -3,6 +3,7 @@ import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getUserFromToken } from '@/lib/auth-utils';
 import { getVariantCost } from '@/lib/store-variant-utils';
+import { logStoreActivity } from '@/lib/store-logger';
 
 async function checkIsAdmin(userId: string) {
   const { data: storeUser } = await supabaseIdktAdmin!
@@ -184,6 +185,16 @@ export async function POST(request: Request) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    logStoreActivity({
+      userId: user.id,
+      userName: (data as any)?.store_users?.full_name || user.email || "User",
+      userEmail: (data as any)?.store_users?.email || user.email || "N/A",
+      action: "CREATE_REQUEST",
+      details: `Created request for ${(data as any)?.store_users?.full_name || 'user'}: ${quantity}x ${(data as any)?.store_items?.item_name || 'Item'}`,
+      metadata: { requestId: data.id, itemId: item_id, quantity }
+    });
+
     return NextResponse.json(data);
   } catch (err: any) {
     console.error("Error creating store request:", err);
@@ -257,6 +268,20 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    logStoreActivity({
+      userId: user.id,
+      userName: (data as any)?.store_users?.full_name || user.email || "Admin",
+      userEmail: (data as any)?.store_users?.email || user.email || "N/A",
+      action: status === 'approved' ? "APPROVE_REQUEST" : (status === 'rejected' ? "REJECT_REQUEST" : "UPDATE_REQUEST"),
+      details: status === 'approved' 
+        ? `Approved request for ${(data as any)?.store_users?.full_name || 'user'} (${(data as any)?.quantity || 1}x ${(data as any)?.store_items?.item_name || 'item'})`
+        : (status === 'rejected'
+            ? `Rejected pending request for ${(data as any)?.store_users?.full_name || 'user'} (${(data as any)?.quantity || 1}x ${(data as any)?.store_items?.item_name || 'item'})`
+            : `Updated request status to ${status || 'updated'}`),
+      metadata: { requestId: id, status, quantity }
+    });
+
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -276,6 +301,17 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
+    // Fetch existing request to inspect status and details before deleting
+    const { data: existingReq } = await supabaseIdktAdmin!
+      .from('store_requests')
+      .select(`
+        id, status, quantity, user_id,
+        store_items (item_name),
+        store_users (full_name, email)
+      `)
+      .eq('id', id)
+      .maybeSingle();
+
     // Ensure they own it or are admin
     const isAdmin = await checkIsAdmin(user.id);
     
@@ -286,6 +322,26 @@ export async function DELETE(request: Request) {
 
     const { error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const reqUser = (existingReq as any)?.store_users?.full_name || 'user';
+    const reqItem = (existingReq as any)?.store_items?.item_name || 'item';
+    const reqQty = (existingReq as any)?.quantity || 1;
+    const reqStatus = (existingReq as any)?.status || 'pending';
+
+    const isPendingRejection = reqStatus === 'pending';
+    const actionName = isPendingRejection ? "REJECT_REQUEST" : "DELETE_REQUEST_HISTORY";
+    const detailsMsg = isPendingRejection
+      ? `Rejected & removed request for ${reqUser} (${reqQty}x ${reqItem})`
+      : `Deleted master audit history record for ${reqUser} (${reqQty}x ${reqItem})`;
+
+    logStoreActivity({
+      userId: user.id,
+      userName: (user as any)?.user_metadata?.full_name || user.email || "Admin",
+      userEmail: user.email || "N/A",
+      action: actionName,
+      details: detailsMsg,
+      metadata: { requestId: id, status: reqStatus, item_name: reqItem, quantity: reqQty }
+    });
     
     return NextResponse.json({ success: true });
   } catch (err) {
