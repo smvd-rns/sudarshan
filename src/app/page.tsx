@@ -12,27 +12,17 @@ export default function PortalPage() {
   const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
-    // 3-second fallback timeout to prevent MantraLoader from hanging if Supabase is offline/unhealthy
-    const timeoutId = setTimeout(() => {
-      console.warn("Auth session check timed out on PortalPage. Enabling offline access mode.");
-      setIsOffline(true);
-      setLoadingAuth(false);
-    }, 3000);
-
-    // Also check if offline event / cached offline state exists
-    if (typeof window !== "undefined" && (!navigator.onLine || localStorage.getItem("db_health_status") === null)) {
+    if (typeof window !== "undefined" && !navigator.onLine) {
       setIsOffline(true);
     }
 
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
-        clearTimeout(timeoutId);
         setSession(session);
         setLoadingAuth(false);
       })
       .catch((err) => {
         console.warn("getSession error on PortalPage:", err);
-        clearTimeout(timeoutId);
         setIsOffline(true);
         setLoadingAuth(false);
       });
@@ -43,7 +33,6 @@ export default function PortalPage() {
     });
 
     return () => {
-      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
