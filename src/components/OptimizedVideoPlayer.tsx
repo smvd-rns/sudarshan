@@ -66,9 +66,10 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
   // On local/http, including the origin parameter can sometimes trigger "Invalid Response" 
   // from YouTube due to strict security policies. We only include it for HTTPS.
   // We use youtube-nocookie.com for better compatibility with filtered networks (e.g. at the Temple).
-  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-  const origin = isHttps ? window.location.origin : undefined;
-  const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+    const isMobileDevice = typeof window !== 'undefined' && (window.innerWidth < 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const origin = isHttps ? window.location.origin : undefined;
+    const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1${isMobileDevice ? '&vq=tiny' : ''}${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
 
   // 1. Load YouTube IFrame API Script (Globally once)
   useEffect(() => {
@@ -208,6 +209,9 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
                playerInstance.current?.seekTo(initialTime, true);
                seekPerformedRef.current = true;
              }
+             if (isMobileDevice && playerInstance.current?.setPlaybackQuality) {
+               try { playerInstance.current.setPlaybackQuality('tiny'); } catch {}
+             }
              // Explicitly play to ensure autoplay works after a transition
              playerInstance.current?.playVideo();
           },
@@ -221,6 +225,10 @@ const OptimizedVideoPlayer = forwardRef<VideoPlayerHandle, OptimizedVideoPlayerP
               updateMediaSession();
               wasPlayingRef.current = true;
               
+              if (isMobileDevice && playerInstance.current?.setPlaybackQuality) {
+                try { playerInstance.current.setPlaybackQuality('tiny'); } catch {}
+              }
+
               // Fallback seek: if onReady seek didn't work or was skipped, try here once
               if (!seekPerformedRef.current && initialTime > 0) {
                 playerInstance.current?.seekTo(initialTime, true);
