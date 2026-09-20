@@ -181,7 +181,21 @@ export default function StoreRequest() {
           const matchName = (item.item_name || "").toLowerCase().includes(q);
           const matchCode = (item.item_code || "").toLowerCase().includes(q);
           const matchCat = (item.category || "").toLowerCase().includes(q);
-          return matchName || matchCode || matchCat;
+          const matchCost = item.cost !== undefined && item.cost !== null ? item.cost.toString().includes(q) : false;
+
+          const parsedV = parseItemVariants(item.variants, item.cost);
+          const matchVariantParsed = parsedV.some(v => 
+            (v.label || "").toLowerCase().includes(q) || 
+            (v.brand || "").toLowerCase().includes(q) || 
+            (v.size || "").toLowerCase().includes(q) ||
+            (v.cost !== undefined && v.cost !== null && v.cost.toString().includes(q))
+          );
+
+          const matchVariantRaw = typeof (item.variants as any) === 'string'
+            ? (item.variants as any).toLowerCase().includes(q)
+            : (item.variants ? JSON.stringify(item.variants).toLowerCase().includes(q) : false);
+
+          return matchName || matchCode || matchCat || matchCost || matchVariantParsed || matchVariantRaw;
         }
         return true;
       })

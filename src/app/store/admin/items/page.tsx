@@ -342,18 +342,24 @@ export default function StoreItemsAdmin() {
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const codeMatch = item.item_code.toLowerCase().includes(q);
-        const nameMatch = item.item_name.toLowerCase().includes(q);
-        const catMatch = item.category?.toLowerCase().includes(q);
+        const codeMatch = (item.item_code || "").toLowerCase().includes(q);
+        const nameMatch = (item.item_name || "").toLowerCase().includes(q);
+        const catMatch = (item.category || "").toLowerCase().includes(q);
+        const costMatch = item.cost !== undefined && item.cost !== null ? item.cost.toString().includes(q) : false;
 
         const parsedV = parseItemVariants(item.variants, item.cost);
-        const variantMatch = parsedV.some(v => 
-          v.label.toLowerCase().includes(q) || 
-          v.brand?.toLowerCase().includes(q) || 
-          v.size?.toLowerCase().includes(q)
+        const variantMatchParsed = parsedV.some(v => 
+          (v.label || "").toLowerCase().includes(q) || 
+          (v.brand || "").toLowerCase().includes(q) || 
+          (v.size || "").toLowerCase().includes(q) ||
+          (v.cost !== undefined && v.cost !== null && v.cost.toString().includes(q))
         );
 
-        return codeMatch || nameMatch || catMatch || variantMatch;
+        const variantMatchRaw = typeof (item.variants as any) === 'string'
+          ? (item.variants as any).toLowerCase().includes(q)
+          : (item.variants ? JSON.stringify(item.variants).toLowerCase().includes(q) : false);
+
+        return codeMatch || nameMatch || catMatch || costMatch || variantMatchParsed || variantMatchRaw;
       }
       return true;
     })

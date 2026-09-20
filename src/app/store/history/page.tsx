@@ -197,7 +197,12 @@ export default function StoreHistory() {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(item => {
         const formattedVar = formatVariantOrAmount(item.variant_or_amount, item.type === 'reimbursement').toLowerCase();
-        return item.item_name.toLowerCase().includes(q) || formattedVar.includes(q);
+        const matchName = (item.item_name || "").toLowerCase().includes(q);
+        const matchVar = formattedVar.includes(q) || (item.variant_or_amount || "").toLowerCase().includes(q);
+        const matchStatus = (item.status || "").toLowerCase().includes(q);
+        const matchQty = (item.quantity || "").toString().includes(q);
+        const matchType = (item.type || "").toLowerCase().includes(q);
+        return matchName || matchVar || matchStatus || matchQty || matchType;
       });
     }
 

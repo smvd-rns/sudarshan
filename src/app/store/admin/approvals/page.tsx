@@ -44,11 +44,13 @@ interface PendingRequest {
     full_name: string;
     email: string;
     temple?: string;
+    mobile?: string;
     store_access_level?: string;
   };
   store_items?: {
     item_code: string;
     item_name: string;
+    category?: string;
     cost?: number;
     variants?: string[];
   };
@@ -66,6 +68,7 @@ interface ReimbursementRecord {
     full_name: string;
     email: string;
     temple?: string;
+    mobile?: string;
     store_access_level?: string;
   };
 }
@@ -490,11 +493,26 @@ export default function StoreApprovals() {
   const filteredCatalogItems = (query: string) => {
     if (!query.trim()) return items;
     const q = query.toLowerCase().trim();
-    return items.filter(i => 
-      (i.item_name || "").toLowerCase().includes(q) ||
-      (i.item_code || "").toLowerCase().includes(q) ||
-      (i.category || "").toLowerCase().includes(q)
-    );
+    return items.filter(i => {
+      const matchName = (i.item_name || "").toLowerCase().includes(q);
+      const matchCode = (i.item_code || "").toLowerCase().includes(q);
+      const matchCat = (i.category || "").toLowerCase().includes(q);
+      const matchCost = i.cost !== undefined && i.cost !== null ? i.cost.toString().includes(q) : false;
+
+      const parsedV = parseItemVariants(i.variants, i.cost || 0);
+      const matchVariantParsed = parsedV.some(v => 
+        (v.label || "").toLowerCase().includes(q) || 
+        (v.brand || "").toLowerCase().includes(q) || 
+        (v.size || "").toLowerCase().includes(q) ||
+        (v.cost !== undefined && v.cost !== null && v.cost.toString().includes(q))
+      );
+
+      const matchVariantRaw = typeof (i.variants as any) === 'string'
+        ? (i.variants as any).toLowerCase().includes(q)
+        : (i.variants ? JSON.stringify(i.variants).toLowerCase().includes(q) : false);
+
+      return matchName || matchCode || matchCat || matchCost || matchVariantParsed || matchVariantRaw;
+    });
   };
 
   // Modal 1 Cart Handlers
@@ -752,11 +770,41 @@ export default function StoreApprovals() {
       list = list.filter(r => {
         const name = (r.store_users?.full_name || "").toLowerCase();
         const email = (r.store_users?.email || "").toLowerCase();
+        const mobile = (r.store_users?.mobile || "").toLowerCase();
         const temple = (r.store_users?.temple || "").toLowerCase();
         const item = (r.store_items?.item_name || "").toLowerCase();
         const itemCode = (r.store_items?.item_code || "").toLowerCase();
-        const variant = (r.selected_variant || "").toLowerCase();
-        return name.includes(q) || email.includes(q) || temple.includes(q) || item.includes(q) || itemCode.includes(q) || variant.includes(q);
+        const itemCat = (r.store_items?.category || "").toLowerCase();
+        const itemCost = r.store_items?.cost !== undefined && r.store_items.cost !== null ? r.store_items.cost.toString() : "";
+        const variantRaw = (r.selected_variant || "").toLowerCase();
+        const variantClean = parseVariantLabel(r.selected_variant).toLowerCase();
+
+        const meta = parseVariantMeta(r.selected_variant);
+        const snapshotName = (meta.snapshotItemName || "").toLowerCase();
+        const snapshotCode = (meta.snapshotItemCode || "").toLowerCase();
+
+        const catalogVariants = r.store_items?.variants ? parseItemVariants(r.store_items.variants, r.store_items.cost || 0) : [];
+        const matchCatalogVariant = catalogVariants.some(v => 
+          (v.label || "").toLowerCase().includes(q) ||
+          (v.brand || "").toLowerCase().includes(q) ||
+          (v.size || "").toLowerCase().includes(q)
+        );
+
+        return (
+          name.includes(q) || 
+          email.includes(q) || 
+          mobile.includes(q) ||
+          temple.includes(q) || 
+          item.includes(q) || 
+          itemCode.includes(q) || 
+          itemCat.includes(q) ||
+          itemCost.includes(q) ||
+          variantRaw.includes(q) || 
+          variantClean.includes(q) ||
+          snapshotName.includes(q) ||
+          snapshotCode.includes(q) ||
+          matchCatalogVariant
+        );
       });
     }
 
@@ -1020,7 +1068,12 @@ export default function StoreApprovals() {
           h.userEmail.toLowerCase().includes(q) ||
           h.userTemple.toLowerCase().includes(q) ||
           h.itemDetails.toLowerCase().includes(q) ||
-          (h.amount || 0).toString().includes(q)
+          (h.amount || 0).toString().includes(q) ||
+          (h.approvedBy || "").toLowerCase().includes(q) ||
+          (h.source || "").toLowerCase().includes(q) ||
+          (h.storeAccessLevel || "").toLowerCase().includes(q) ||
+          (h.quantity || 0).toString().includes(q) ||
+          (h.raw ? JSON.stringify(h.raw).toLowerCase().includes(q) : false)
         );
       });
     }
