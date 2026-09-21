@@ -116,7 +116,9 @@ export async function GET(request: Request) {
            can_access_admin_panel: isStoreAdminRole
          };
          const hasAccess = effectiveHasAdminAccess || (effectiveUser?.store_access_level === 'general' || effectiveUser?.store_access_level === 'internal' || effectiveUser?.is_store_admin || effectiveUser?.has_special_access);
-         return NextResponse.json({ storeUser: effectiveUser, access: hasAccess });
+         return NextResponse.json({ storeUser: effectiveUser, access: hasAccess }, {
+           headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+         });
       }
 
       const finalIsStoreAdmin = !!storeUser.is_store_admin || isStoreAdminRole || isStoreManagerRole;
@@ -131,7 +133,9 @@ export async function GET(request: Request) {
         can_access_admin_panel: isStoreAdminRole
       };
       const hasAccess = effectiveHasAdminAccess || (storeUser.store_access_level === 'general' || storeUser.store_access_level === 'internal' || storeUser.is_store_admin || storeUser.has_special_access);
-      return NextResponse.json({ storeUser: effectiveUser, access: hasAccess });
+      return NextResponse.json({ storeUser: effectiveUser, access: hasAccess }, {
+        headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+      });
     }
 
     // Auto-create for new visitor
@@ -177,7 +181,9 @@ export async function GET(request: Request) {
       can_access_admin_panel: isStoreAdminRole
     };
 
-    return NextResponse.json({ storeUser: finalUser, access: true });
+    return NextResponse.json({ storeUser: finalUser, access: true }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+    });
 
   } catch (error: any) {
     console.error("Error in /api/store/auth:", error);

@@ -59,27 +59,31 @@ export async function GET(request: NextRequest) {
       86400 // 24 hours
     );
 
-    // Helper function to optimize custom logo URLs (specifically Google Drive ones)
-    const optimizeLogoUrl = (url: string | null) => {
+    // BANDWIDTH FIX: Strip base64 Data URIs from logo field before sending over the wire.
+    // Base64 logos for 80+ channels = 8-16MB per response. Instead, clients should use
+    // the /api/youtube/logo/[id] proxy route or fall back to a channel initial placeholder.
+    const stripBase64Logo = (url: string | null): string | null => {
       if (!url) return null;
-      if (url.startsWith("data:image/")) return url;
+      // If it's a base64 Data URI, don't send it — return null so client renders fallback
+      if (url.startsWith("data:image/")) return null;
+      // Optimize Google User Content URLs
       if (url.includes("googleusercontent.com")) {
-        if (!url.includes("=")) {
-          return `${url}=s800`;
-        } else {
-          return url.replace(/=s\d+/, "=s800");
-        }
+        return url.includes("=") ? url.replace(/=s\d+/, "=s200") : `${url}=s200`;
       }
       return url;
     };
 
     const optimizedPublic = publicChannels.map((ch: any) => ({
       ...ch,
-      custom_logo: optimizeLogoUrl(ch.custom_logo)
+      custom_logo: stripBase64Logo(ch.custom_logo)
     }));
 
+    const EDGE_CACHE_HEADERS = {
+      'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=3600'
+    };
+
     if (!userId) {
-      return NextResponse.json({ channels: optimizedPublic });
+      return NextResponse.json({ channels: optimizedPublic }, { headers: EDGE_CACHE_HEADERS });
     }
 
     if (isSuperAdmin) {
@@ -95,9 +99,12 @@ export async function GET(request: NextRequest) {
         
         const optimizedAll = (allChannels || []).map((ch: any) => ({
           ...ch,
-          custom_logo: optimizeLogoUrl(ch.custom_logo)
+          custom_logo: stripBase64Logo(ch.custom_logo)
         }));
-        return NextResponse.json({ channels: optimizedAll });
+        // Admin data: short cache so additions appear quickly
+        return NextResponse.json({ channels: optimizedAll }, {
+          headers: { 'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600' }
+        });
       } catch (err) {
         console.warn("Failed to fetch all channels for super admin (DB offline). Degrading to public channels.", err);
         // Fallthrough to return public channels below
@@ -136,13 +143,13 @@ export async function GET(request: NextRequest) {
 
       const combined = [...optimizedPublic, ...(privateChannels || []).map((ch: any) => ({
         ...ch,
-        custom_logo: optimizeLogoUrl(ch.custom_logo)
+        custom_logo: stripBase64Logo(ch.custom_logo)
       }))];
       combined.sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
-      return NextResponse.json({ channels: combined });
+      return NextResponse.json({ channels: combined }, { headers: EDGE_CACHE_HEADERS });
     }
 
-    return NextResponse.json({ channels: optimizedPublic });
+    return NextResponse.json({ channels: optimizedPublic }, { headers: EDGE_CACHE_HEADERS });
 
 
   } catch (error) {

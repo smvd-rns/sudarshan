@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ isBcdb: isVerified });
+    return NextResponse.json({ isBcdb: isVerified }, {
+      headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' }
+    });
   } catch (error: any) {
     console.error("BCDB Check Error:", error.message);
     return NextResponse.json({ isBcdb: false }, { status: 500 });

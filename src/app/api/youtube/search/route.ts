@@ -125,6 +125,10 @@ export async function GET(request: NextRequest) {
       playlists,
       videos,
       count: results.length 
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=3600'
+      }
     });
 
   } catch (error: any) {
@@ -132,3 +136,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Internal Search Error" }, { status: 500 });
   }
 }
+

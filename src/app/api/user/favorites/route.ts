@@ -66,7 +66,9 @@ export async function GET(request: NextRequest) {
     // Sort to match the order of favorites (most recent first)
     const sortedVideos = favoriteIds.map((id: string) => videoMap.get(id)).filter(Boolean);
 
-    return NextResponse.json({ items: sortedVideos, favoriteIds });
+    return NextResponse.json({ items: sortedVideos, favoriteIds }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=1800' }
+    });
   } catch (error: any) {
     console.error("Fetch Watch Later error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseIdkt, supabaseIdktAdmin } from "@/lib/supabaseIdkt";
 
-export const dynamic = "force-dynamic";
 
 /**
  * IDKT BROWSE API
@@ -53,7 +52,9 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items }, {
+      headers: { 'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=3600' }
+    });
   } catch (error: unknown) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days cache
 
@@ -57,9 +57,13 @@ function readCachedAccess(currentUserId?: string): { hasAccess: boolean; isAdmin
 
 export function useStoreAccess(session: any) {
   const currentUserId = session?.user?.id;
+  const accessToken = session?.access_token;
 
   const [hasStoreAccess, setHasStoreAccess] = useState<boolean>(false);
   const [isStoreAdmin, setIsStoreAdmin] = useState<boolean>(false);
+  // Guard ref: prevents duplicate fetch when session object re-renders but user hasn't changed
+  const isFetchingRef = React.useRef(false);
+  const lastFetchedUserId = React.useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -77,15 +81,22 @@ export function useStoreAccess(session: any) {
       }
     }
 
-    if (!session || !currentUserId) {
+    if (!currentUserId || !accessToken) {
+      return;
+    }
+
+    // Prevent duplicate fetches if user hasn't changed or a fetch is already in-flight
+    if (isFetchingRef.current || lastFetchedUserId.current === currentUserId) {
       return;
     }
 
     const checkAccess = async () => {
+      isFetchingRef.current = true;
+      lastFetchedUserId.current = currentUserId;
       try {
         const res = await fetch('/api/store/auth', {
           headers: {
-            'Authorization': `Bearer ${session.access_token}`
+            'Authorization': `Bearer ${accessToken}`
           }
         });
         if (res.ok) {
@@ -111,15 +122,18 @@ export function useStoreAccess(session: any) {
         }
       } catch (err) {
         // silently fail
+      } finally {
+        isFetchingRef.current = false;
       }
     };
 
     checkAccess();
     return () => { mounted = false; };
-  }, [session, currentUserId]);
+  }, [currentUserId, accessToken]); // Only re-run when user ID or token actually changes
 
   return { hasStoreAccess, isStoreAdmin };
 }
+
 
 export function clearStoreAccessCache() {
   globalStoreAccessCache = null;

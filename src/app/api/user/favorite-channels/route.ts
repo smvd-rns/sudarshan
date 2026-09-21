@@ -35,7 +35,9 @@ export async function GET(request: NextRequest) {
       3600 // 1 hour
     );
 
-    return NextResponse.json({ favoriteIds });
+    return NextResponse.json({ favoriteIds }, {
+      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=1800' }
+    });
   } catch (error: any) {
     console.error("Fetch favorite channels API error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
