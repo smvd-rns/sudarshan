@@ -66,9 +66,9 @@ export async function GET(request: NextRequest) {
       if (!url) return null;
       // If it's a base64 Data URI, don't send it — return null so client renders fallback
       if (url.startsWith("data:image/")) return null;
-      // Optimize Google User Content URLs
+      // Optimize Google User Content URLs (400px = sharp display with minimal ~15KB data usage)
       if (url.includes("googleusercontent.com")) {
-        return url.includes("=") ? url.replace(/=s\d+/, "=s200") : `${url}=s200`;
+        return url.includes("=") ? url.replace(/=s\d+/, "=s400") : `${url}=s400`;
       }
       return url;
     };

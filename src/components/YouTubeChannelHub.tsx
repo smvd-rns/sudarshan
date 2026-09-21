@@ -199,7 +199,7 @@ export default function YouTubeChannelHub() {
         if (typeof window !== "undefined") {
           for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.includes("channels_cache_v5_")) {
+            if (k && k.includes("channels_cache_v6_")) {
               const item = localStorage.getItem(k);
               if (item) {
                 const parsed = JSON.parse(item);
@@ -249,14 +249,14 @@ export default function YouTubeChannelHub() {
         }
 
         const userId = session?.user?.id || "guest";
-        const storageKey = `channels_cache_v5_${userId}`;
+        const storageKey = `channels_cache_v6_${userId}`;
 
         const headers: Record<string, string> = {};
         if (session) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
 
-        const res = await fetch("/api/youtube/channels?v=5", { headers });
+        const res = await fetch("/api/youtube/channels?v=6", { headers });
         if (!res.ok) {
           throw new Error(`Channels API returned status ${res.status}`);
         }

@@ -120,7 +120,7 @@ export async function warmCache<T>(key: string, data: T, ttlSeconds: number): Pr
 // Centralised here so all routes use consistent key names.
 
 export const CacheKeys = {
-  channelsPublic: "channels:public:v5",
+  channelsPublic: "channels:public:v6",
   channelMeta: (channelId: string) => `channel:meta:${channelId}`,
   userRole: (userId: string) => `user:${userId}:role`,
   userAssignments: (userId: string) => `user:${userId}:assignments`,
