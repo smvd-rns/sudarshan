@@ -28,7 +28,7 @@ import {
   LayoutGrid
 } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
-import { parseItemVariants, getVariantCost, ItemVariant } from "@/lib/store-variant-utils";
+import { parseItemVariants, getVariantCost, matchStoreItem, ItemVariant } from "@/lib/store-variant-utils";
 import { PaginationControls } from "@/components/PaginationControls";
 
 interface StoreItem {
@@ -176,28 +176,7 @@ export default function StoreRequest() {
     return items
       .filter(item => {
         if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchName = (item.item_name || "").toLowerCase().includes(q);
-          const matchCode = (item.item_code || "").toLowerCase().includes(q);
-          const matchCat = (item.category || "").toLowerCase().includes(q);
-          const matchCost = item.cost !== undefined && item.cost !== null ? item.cost.toString().includes(q) : false;
-
-          const parsedV = parseItemVariants(item.variants, item.cost);
-          const matchVariantParsed = parsedV.some(v => 
-            (v.label || "").toLowerCase().includes(q) || 
-            (v.brand || "").toLowerCase().includes(q) || 
-            (v.size || "").toLowerCase().includes(q) ||
-            (v.cost !== undefined && v.cost !== null && v.cost.toString().includes(q))
-          );
-
-          const matchVariantRaw = typeof (item.variants as any) === 'string'
-            ? (item.variants as any).toLowerCase().includes(q)
-            : (item.variants ? JSON.stringify(item.variants).toLowerCase().includes(q) : false);
-
-          return matchName || matchCode || matchCat || matchCost || matchVariantParsed || matchVariantRaw;
-        }
-        return true;
+        return matchStoreItem(item, searchQuery);
       })
       .sort((a, b) => {
         if (sortBy === "code_asc") return (a.item_code || "").localeCompare(b.item_code || "", undefined, { numeric: true });

@@ -9,7 +9,7 @@ import {
   CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Copy, Download
 } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
-import { parseItemVariants, ItemVariant } from "@/lib/store-variant-utils";
+import { parseItemVariants, matchStoreItem, ItemVariant } from "@/lib/store-variant-utils";
 
 interface StoreItem {
   id: string;
@@ -492,27 +492,7 @@ export default function StoreApprovals() {
   // ---------------------------------------------------------------------------
   const filteredCatalogItems = (query: string) => {
     if (!query.trim()) return items;
-    const q = query.toLowerCase().trim();
-    return items.filter(i => {
-      const matchName = (i.item_name || "").toLowerCase().includes(q);
-      const matchCode = (i.item_code || "").toLowerCase().includes(q);
-      const matchCat = (i.category || "").toLowerCase().includes(q);
-      const matchCost = i.cost !== undefined && i.cost !== null ? i.cost.toString().includes(q) : false;
-
-      const parsedV = parseItemVariants(i.variants, i.cost || 0);
-      const matchVariantParsed = parsedV.some(v => 
-        (v.label || "").toLowerCase().includes(q) || 
-        (v.brand || "").toLowerCase().includes(q) || 
-        (v.size || "").toLowerCase().includes(q) ||
-        (v.cost !== undefined && v.cost !== null && v.cost.toString().includes(q))
-      );
-
-      const matchVariantRaw = typeof (i.variants as any) === 'string'
-        ? (i.variants as any).toLowerCase().includes(q)
-        : (i.variants ? JSON.stringify(i.variants).toLowerCase().includes(q) : false);
-
-      return matchName || matchCode || matchCat || matchCost || matchVariantParsed || matchVariantRaw;
-    });
+    return items.filter(i => matchStoreItem(i, query));
   };
 
   // Modal 1 Cart Handlers
@@ -2748,13 +2728,13 @@ export default function StoreApprovals() {
                                 {/* Main Item Header Row (Clicking toggles variant dropdown container) */}
                                 <div
                                   onClick={() => toggleUserItemExpand(item.id)}
-                                  className="p-2.5 bg-slate-50/90 hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between gap-2.5 text-xs select-none border-b border-slate-100"
+                                  className="p-2.5 bg-slate-50/90 hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between gap-2 text-xs select-none border-b border-slate-100"
                                 >
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                                    <div className="min-w-0">
-                                      <div className="font-bold text-slate-800 flex items-center gap-1.5 truncate">
-                                        <span className="truncate">{item.item_name}</span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
+                                        <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
                                         {item.item_code && (
                                           <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono shrink-0">
                                             #{item.item_code}
@@ -2765,7 +2745,7 @@ export default function StoreApprovals() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2 shrink-0">
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
                                     {/* Direct Dropdown Selection on Main Item Row */}
                                     <select
                                       onClick={e => e.stopPropagation()}
@@ -2777,7 +2757,7 @@ export default function StoreApprovals() {
                                           e.target.value = "";
                                         }
                                       }}
-                                      className="px-2 py-1 bg-white border border-devo-300 rounded-lg text-xs font-bold text-devo-800 outline-none cursor-pointer focus:border-devo-500 shadow-2xs max-w-[145px]"
+                                      className="hidden sm:inline-block px-2 py-1 bg-white border border-devo-300 rounded-lg text-xs font-bold text-devo-800 outline-none cursor-pointer focus:border-devo-500 shadow-2xs max-w-[130px]"
                                     >
                                       <option value="">-- Pick Variant --</option>
                                       {itemVariants.map(v => (
@@ -2816,7 +2796,7 @@ export default function StoreApprovals() {
                                                 <Square className="w-3.5 h-3.5 text-slate-300" />
                                               )}
                                             </div>
-                                            <span className="text-slate-800 font-medium truncate">{v.label}</span>
+                                            <span className="text-slate-800 font-medium break-words">{v.label}</span>
                                           </div>
 
                                           <div className="flex items-center gap-2 shrink-0">
@@ -2846,7 +2826,7 @@ export default function StoreApprovals() {
                                 isSelected ? "bg-devo-50 border border-devo-200/90 shadow-2xs" : "hover:bg-slate-50 border border-transparent"
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
                                 <div className="shrink-0 text-devo-600">
                                   {isSelected ? (
                                     <CheckSquare className="w-4 h-4 text-devo-600" />
@@ -2854,9 +2834,9 @@ export default function StoreApprovals() {
                                     <Square className="w-4 h-4 text-slate-300" />
                                   )}
                                 </div>
-                                <div className="min-w-0">
-                                  <div className="font-bold text-slate-800 flex items-center gap-1.5 truncate">
-                                    <span className="truncate">{item.item_name}</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
+                                    <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
                                     {item.item_code && (
                                       <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono shrink-0">
                                         #{item.item_code}
@@ -3146,13 +3126,13 @@ export default function StoreApprovals() {
                                 {/* Main Item Header Row */}
                                 <div
                                   onClick={() => toggleGuestItemExpand(item.id)}
-                                  className="p-2.5 bg-slate-50/90 hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between gap-2.5 text-xs select-none border-b border-slate-100"
+                                  className="p-2.5 bg-slate-50/90 hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between gap-2 text-xs select-none border-b border-slate-100"
                                 >
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                                    <div className="min-w-0">
-                                      <div className="font-bold text-slate-800 flex items-center gap-1.5 truncate">
-                                        <span className="truncate">{item.item_name}</span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
+                                        <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
                                         {item.item_code && (
                                           <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono shrink-0">
                                             #{item.item_code}
@@ -3163,7 +3143,7 @@ export default function StoreApprovals() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2 shrink-0">
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
                                     <select
                                       onClick={e => e.stopPropagation()}
                                       onChange={e => {
@@ -3174,7 +3154,7 @@ export default function StoreApprovals() {
                                           e.target.value = "";
                                         }
                                       }}
-                                      className="px-2 py-1 bg-white border border-purple-300 rounded-lg text-xs font-bold text-purple-800 outline-none cursor-pointer focus:border-purple-500 shadow-2xs max-w-[145px]"
+                                      className="hidden sm:inline-block px-2 py-1 bg-white border border-purple-300 rounded-lg text-xs font-bold text-purple-800 outline-none cursor-pointer focus:border-purple-500 shadow-2xs max-w-[130px]"
                                     >
                                       <option value="">-- Pick Variant --</option>
                                       {itemVariants.map(v => (
@@ -3212,7 +3192,7 @@ export default function StoreApprovals() {
                                                 <Square className="w-3.5 h-3.5 text-slate-300" />
                                               )}
                                             </div>
-                                            <span className="text-slate-800 font-medium truncate">{v.label}</span>
+                                            <span className="text-slate-800 font-medium break-words">{v.label}</span>
                                           </div>
 
                                           <div className="flex items-center gap-2 shrink-0">
@@ -3242,7 +3222,7 @@ export default function StoreApprovals() {
                                 isSelected ? "bg-purple-50 border border-purple-200/90 shadow-2xs" : "hover:bg-slate-50 border border-transparent"
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
                                 <div className="shrink-0 text-purple-600">
                                   {isSelected ? (
                                     <CheckSquare className="w-4 h-4 text-purple-600" />
@@ -3250,9 +3230,9 @@ export default function StoreApprovals() {
                                     <Square className="w-4 h-4 text-slate-300" />
                                   )}
                                 </div>
-                                <div className="min-w-0">
-                                  <div className="font-bold text-slate-800 flex items-center gap-1.5 truncate">
-                                    <span className="truncate">{item.item_name}</span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
+                                    <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
                                     {item.item_code && (
                                       <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono shrink-0">
                                         #{item.item_code}

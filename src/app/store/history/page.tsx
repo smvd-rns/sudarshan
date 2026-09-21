@@ -18,6 +18,7 @@ import {
   Clock,
   XCircle
 } from "lucide-react";
+import { matchMultiToken } from "@/lib/store-variant-utils";
 import { useStoreAuth } from "@/components/StoreGuard";
 import { PaginationControls } from "@/components/PaginationControls";
 
@@ -194,15 +195,12 @@ export default function StoreHistory() {
 
     // Search filter
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
       list = list.filter(item => {
-        const formattedVar = formatVariantOrAmount(item.variant_or_amount, item.type === 'reimbursement').toLowerCase();
-        const matchName = (item.item_name || "").toLowerCase().includes(q);
-        const matchVar = formattedVar.includes(q) || (item.variant_or_amount || "").toLowerCase().includes(q);
-        const matchStatus = (item.status || "").toLowerCase().includes(q);
-        const matchQty = (item.quantity || "").toString().includes(q);
-        const matchType = (item.type || "").toLowerCase().includes(q);
-        return matchName || matchVar || matchStatus || matchQty || matchType;
+        const formattedVar = formatVariantOrAmount(item.variant_or_amount, item.type === 'reimbursement');
+        return matchMultiToken(
+          [item.item_name, item.variant_or_amount, formattedVar, item.status, item.quantity, item.type],
+          searchQuery
+        );
       });
     }
 

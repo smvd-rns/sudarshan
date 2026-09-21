@@ -158,3 +158,66 @@ export function getVariantCost(selectedVariant: string | null | undefined, rawVa
 
   return defaultCost;
 }
+
+/**
+ * Advanced multi-token search matcher for store items.
+ * Matches if EVERY word token in the search query is satisfied by any of the item's attributes
+ * (item_name, item_code, category, cost, variant labels/brands/sizes, description, etc.)
+ * Allows searching across item names and variant names (e.g., "soap case", "soap #025", "cowpathy soap").
+ */
+export function matchStoreItem(item: any, searchQuery: string): boolean {
+  if (!item) return false;
+  if (!searchQuery || !searchQuery.trim()) return true;
+
+  const rawQuery = searchQuery.toLowerCase().trim();
+  const queryTokens = rawQuery.split(/\s+/).filter(Boolean);
+  if (queryTokens.length === 0) return true;
+
+  const itemParts: string[] = [];
+
+  if (item.item_name) itemParts.push(item.item_name);
+  if (item.item_code) {
+    itemParts.push(item.item_code);
+    itemParts.push(`#${item.item_code}`);
+  }
+  if (item.category) itemParts.push(item.category);
+  if (item.cost !== undefined && item.cost !== null) itemParts.push(item.cost.toString());
+  if (item.description) itemParts.push(item.description);
+
+  // Parse and include all variant details
+  const parsedVariants = parseItemVariants(item.variants, item.cost || 0);
+  parsedVariants.forEach(v => {
+    if (v.label) itemParts.push(v.label);
+    if (v.brand) itemParts.push(v.brand);
+    if (v.size) itemParts.push(v.size);
+    if (v.cost !== undefined && v.cost !== null) itemParts.push(v.cost.toString());
+  });
+
+  // If variants is a raw string/JSON, include it as well
+  if (typeof item.variants === 'string') {
+    itemParts.push(item.variants);
+  }
+
+  const searchableText = itemParts.join(" ").toLowerCase();
+
+  // Item matches if EVERY token in search query exists anywhere in item's combined searchable text
+  return queryTokens.every(token => searchableText.includes(token));
+}
+
+/**
+ * Generic multi-token matcher for any object given an array of searchable string/number fields.
+ */
+export function matchMultiToken(fields: (string | number | null | undefined)[], searchQuery: string): boolean {
+  if (!searchQuery || !searchQuery.trim()) return true;
+  const tokens = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  const searchableText = fields
+    .filter(f => f !== null && f !== undefined)
+    .map(f => f!.toString())
+    .join(" ")
+    .toLowerCase();
+
+  return tokens.every(token => searchableText.includes(token));
+}
+

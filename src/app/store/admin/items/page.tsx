@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Plus, Trash2, Edit3, Search, Filter, ArrowUpDown, Copy, Layers, Tag, Info, X, Check, Hash, AlertTriangle } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
-import { parseItemVariants, ItemVariant } from "@/lib/store-variant-utils";
+import { parseItemVariants, matchStoreItem, ItemVariant } from "@/lib/store-variant-utils";
 import { PaginationControls } from "@/components/PaginationControls";
 
 interface StoreItem {
@@ -339,29 +339,7 @@ export default function StoreItemsAdmin() {
   const filteredAndSortedItems = items
     .filter(item => {
       if (categoryFilter !== "All" && item.category !== categoryFilter) return false;
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const codeMatch = (item.item_code || "").toLowerCase().includes(q);
-        const nameMatch = (item.item_name || "").toLowerCase().includes(q);
-        const catMatch = (item.category || "").toLowerCase().includes(q);
-        const costMatch = item.cost !== undefined && item.cost !== null ? item.cost.toString().includes(q) : false;
-
-        const parsedV = parseItemVariants(item.variants, item.cost);
-        const variantMatchParsed = parsedV.some(v => 
-          (v.label || "").toLowerCase().includes(q) || 
-          (v.brand || "").toLowerCase().includes(q) || 
-          (v.size || "").toLowerCase().includes(q) ||
-          (v.cost !== undefined && v.cost !== null && v.cost.toString().includes(q))
-        );
-
-        const variantMatchRaw = typeof (item.variants as any) === 'string'
-          ? (item.variants as any).toLowerCase().includes(q)
-          : (item.variants ? JSON.stringify(item.variants).toLowerCase().includes(q) : false);
-
-        return codeMatch || nameMatch || catMatch || costMatch || variantMatchParsed || variantMatchRaw;
-      }
-      return true;
+      return matchStoreItem(item, searchQuery);
     })
     .sort((a, b) => {
       if (sortBy === "code_asc") return a.item_code.localeCompare(b.item_code, undefined, { numeric: true });
