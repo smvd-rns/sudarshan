@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
-import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET() {
   try {
@@ -8,7 +7,7 @@ export async function GET() {
       return NextResponse.json({ error: "DB not configured" }, { status: 500 });
     }
 
-    // Fetch approved store users from store_users
+    // Fetch approved store users strictly from store_users table in Store DB
     const { data: storeUsers, error: sError } = await supabaseIdktAdmin
       .from('store_users')
       .select('id, full_name, store_access_level, is_store_admin, has_special_access');
@@ -25,30 +24,10 @@ export async function GET() {
       su.has_special_access
     );
 
-    const approvedIds = approvedStoreUsers.map((su: any) => su.id);
-
-    // Merge names from main DB profiles if full_name is missing or placeholder
-    let nameMap = new Map<string, string>();
-    if (approvedIds.length > 0 && supabaseAdmin) {
-      const { data: mainProfiles } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', approvedIds);
-
-      if (mainProfiles) {
-        mainProfiles.forEach((p: any) => {
-          if (p.full_name && p.full_name.trim()) {
-            nameMap.set(p.id, p.full_name.trim());
-          }
-        });
-      }
-    }
-
-    // Construct response containing ONLY id and full_name (no emails or sensitive details)
+    // Construct response containing ONLY id and full_name directly from store_users table
     const result = approvedStoreUsers
       .map((su: any) => {
-        const nameFromProfile = nameMap.get(su.id);
-        const name = (nameFromProfile || su.full_name || "Approved Member").trim();
+        const name = (su.full_name || "Approved Member").trim();
         return {
           id: su.id,
           full_name: name
@@ -63,3 +42,4 @@ export async function GET() {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
