@@ -79,6 +79,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // If we already have an active profile or session loaded, DB is verified online - skip query
+      if (profile || session) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ status: "online", timestamp: Date.now() }));
+        }
+        setDbOffline(false);
+        setCheckingDb(false);
+        return;
+      }
+
       // Perform a direct query using client-side Supabase client with 12-second timeout
       const res: any = await withTimeout<any>(
         supabase.from("profiles").select("id").limit(1).maybeSingle(),
@@ -125,6 +135,17 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     checkDbHealth();
   }, []);
+
+  // Reactive sync: when profile or session is available, confirm DB is online without querying again
+  useEffect(() => {
+    if (profile || session) {
+      setDbOffline(false);
+      setCheckingDb(false);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("db_health_status", JSON.stringify({ status: "online", timestamp: Date.now() }));
+      }
+    }
+  }, [profile, session]);
 
   // Reactive fail-safe: if profile query fails ONLY due to genuine network error, trigger offline mode
   useEffect(() => {

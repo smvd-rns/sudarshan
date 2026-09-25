@@ -4,12 +4,20 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 const BCDB_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache for profile
 const bcdbCheckCache = new Map<string, { isBcdb: boolean; at: number }>();
-let globalProfileCache: { userId: string; profile: any; isBcdb: boolean } | null = null;
+
+let globalProfileCache: { userId: string; profile: any; isBcdb: boolean; at: number } | null = null;
+let pendingProfilePromises = new Map<string, Promise<{ profile: any; isBcdb: boolean }>>();
 
 export function useProfile(session: any) {
   const currentUserId = session?.user?.id;
-  const isCached = globalProfileCache && globalProfileCache.userId === currentUserId;
+  const now = Date.now();
+  const isCached = !!(
+    globalProfileCache &&
+    globalProfileCache.userId === currentUserId &&
+    now - globalProfileCache.at < PROFILE_CACHE_TTL_MS
+  );
 
   const [profile, setProfile] = useState<any>(isCached ? globalProfileCache!.profile : null);
   const [isBcdb, setIsBcdb] = useState(isCached ? globalProfileCache!.isBcdb : false);
@@ -20,17 +28,37 @@ export function useProfile(session: any) {
   const [lastCheckedId, setLastCheckedId] = useState<string | null>(isCached ? currentUserId : null);
 
   const fetchProfile = useCallback(async (userId: string, force = false) => {
-    if (userId === lastCheckedId && !force && isCached) {
+    const checkNow = Date.now();
+    const cacheValid = !!(
+      globalProfileCache &&
+      globalProfileCache.userId === userId &&
+      checkNow - globalProfileCache.at < PROFILE_CACHE_TTL_MS
+    );
+
+    if (userId === lastCheckedId && !force && cacheValid) {
        setLoading(false);
        return;
     }
 
-    if (!isCached || force) {
+    if (!cacheValid || force) {
       setLoading(true);
     }
     setLastCheckedId(userId);
 
-    try {
+    // Request Deduplication: If a request is already in-flight for this userId and not forced, attach to it
+    if (pendingProfilePromises.has(userId) && !force) {
+      try {
+        const result = await pendingProfilePromises.get(userId)!;
+        setProfile(result.profile);
+        setIsBcdb(result.isBcdb);
+        setLoading(false);
+        return;
+      } catch (err) {
+        // Fallthrough to attempt a fresh fetch if pending promise failed
+      }
+    }
+
+    const fetchPromise = (async () => {
       let finalBcdb = false;
 
       const checkBcdb = async (email: string, roleOrRoles?: number | number[]) => {
@@ -49,8 +77,8 @@ export function useProfile(session: any) {
 
         const normalizedEmail = email.toLowerCase().trim();
         const cached = bcdbCheckCache.get(normalizedEmail);
-        const now = Date.now();
-        if (cached && now - cached.at < BCDB_CACHE_TTL_MS) {
+        const timeNow = Date.now();
+        if (cached && timeNow - cached.at < BCDB_CACHE_TTL_MS) {
           setIsBcdb(cached.isBcdb);
           return cached.isBcdb;
         }
@@ -76,7 +104,7 @@ export function useProfile(session: any) {
           const data = await res.json();
           const result = !!data.isBcdb;
           setIsBcdb(result);
-          bcdbCheckCache.set(normalizedEmail, { isBcdb: result, at: now });
+          bcdbCheckCache.set(normalizedEmail, { isBcdb: result, at: timeNow });
           return result;
         } catch (err) {
           console.error("BCDB Check API Error:", err);
@@ -102,9 +130,9 @@ export function useProfile(session: any) {
         } else {
           finalBcdb = await checkBcdb(data.email || session?.user?.email, data.roles || data.role);
         }
-        globalProfileCache = { userId, profile: data, isBcdb: finalBcdb };
-        setLoading(false);
-        return;
+        const cachedObj = { userId, profile: data, isBcdb: finalBcdb, at: Date.now() };
+        globalProfileCache = cachedObj;
+        return { profile: data, isBcdb: finalBcdb };
       }
 
       // 2. Claim existing unlinked profile if email matches
@@ -129,9 +157,9 @@ export function useProfile(session: any) {
           
           setProfile(updatedProfile);
           finalBcdb = await checkBcdb(updatedProfile.email || session?.user?.email, updatedProfile.roles || updatedProfile.role);
-          globalProfileCache = { userId, profile: updatedProfile, isBcdb: finalBcdb };
-          setLoading(false);
-          return;
+          const cachedObj = { userId, profile: updatedProfile, isBcdb: finalBcdb, at: Date.now() };
+          globalProfileCache = cachedObj;
+          return { profile: updatedProfile, isBcdb: finalBcdb };
         }
       }
 
@@ -151,15 +179,25 @@ export function useProfile(session: any) {
       if (createError) throw createError;
       setProfile(newProfile);
       finalBcdb = await checkBcdb(newProfile.email || session?.user?.email, newProfile.roles || newProfile.role);
-      globalProfileCache = { userId, profile: newProfile, isBcdb: finalBcdb };
+      const cachedObj = { userId, profile: newProfile, isBcdb: finalBcdb, at: Date.now() };
+      globalProfileCache = cachedObj;
+      return { profile: newProfile, isBcdb: finalBcdb };
+    })();
 
+    pendingProfilePromises.set(userId, fetchPromise);
+
+    try {
+      const result = await fetchPromise;
+      setLoading(false);
+      return result;
     } catch (err: any) {
       console.error("Profile Hook Error:", err.message || err);
       setError(err.message || "Failed to load profile");
     } finally {
+      pendingProfilePromises.delete(userId);
       setLoading(false);
     }
-  }, [session?.user?.id, lastCheckedId, isCached]);
+  }, [session?.user?.id, lastCheckedId, session?.access_token, session?.user?.email, session?.user?.user_metadata?.full_name]);
 
   useEffect(() => {
     if (session?.user?.id) {
@@ -195,3 +233,4 @@ export function useProfile(session: any) {
     refreshProfile: () => session?.user?.id && fetchProfile(session.user.id, true) 
   };
 }
+
