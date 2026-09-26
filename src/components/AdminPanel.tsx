@@ -3296,7 +3296,7 @@ export default function AdminPanel() {
 
         {/* VIEW: Notifications History */}
         {(activeView === "notifications" && isManager) && (
-          <NotificationsHistoryList />
+          <NotificationsHistoryList userId={session?.user?.id} isManager={isManager} />
         )}
 
         {/* VIEW: Store Sync */}
@@ -3469,7 +3469,7 @@ export default function AdminPanel() {
                   <Clock className="w-5 h-5 text-slate-400" /> Recent Activity
                 </h3>
 
-                <NotificationsHistoryList limit={10} />
+                <NotificationsHistoryList limit={10} userId={session?.user?.id} isManager={isManager} />
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Bell, Clock, CheckCircle, Loader2, Mail } from "lucide-react";
+import { Bell, Clock, Loader2, Mail, RefreshCw } from "lucide-react";
 
 interface NotificationRecord {
   id: string;
@@ -14,92 +14,60 @@ interface NotificationRecord {
   created_at: string;
 }
 
-export default function NotificationsHistoryList({ limit = 10 }: { limit?: number }) {
+/**
+ * Notification history list — loads on page visit only.
+ *
+ * Log Ingestion Optimizations:
+ * - Supabase Realtime WebSocket removed; data is fetched once on mount.
+ * - Accepts userId and isManager as props (from parent useProfile hook)
+ *   so no extra profiles DB query is needed here.
+ * - A manual refresh button lets users pull latest without a persistent connection.
+ */
+export default function NotificationsHistoryList({
+  limit = 10,
+  userId,
+  isManager,
+}: {
+  limit?: number;
+  userId?: string | null;
+  isManager?: boolean;
+}) {
   const [history, setHistory] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [isManager, setIsManager] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    async function getSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUserId(session.user.id);
-        // Check role
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role, roles")
-          .eq("id", session.user.id)
-          .single();
-        
-        const roles = Array.isArray(profile?.roles) ? profile.roles : [profile?.role].filter(r => r != null);
-        if (roles.includes(1) || roles.includes(5)) {
-          setIsManager(true);
-        }
-      }
-      setAuthReady(true);
-    }
-    getSession();
-  }, []);
+  const fetchHistory = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
 
-  const fetchHistory = async () => {
-    if (!authReady && history.length === 0) return; // Wait for identity
-    if (loading && history.length === 0) setLoading(true);
     try {
       let query = supabase
         .from("notifications_history")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(limit);
-      
-      // Privacy Filter: Only restrict if NOT a manager
+
+      // Privacy Filter: only restrict if NOT a manager
       if (!isManager && userId) {
-        // Strict recipient check using Postgres array comparison (contains)
         query = query.or(`target_type.eq.all,recipient_ids.cs.{"${userId}"}`);
       } else if (!userId) {
-        // Explicitly only show public broadcasts if user identity is missing
         query = query.eq('target_type', 'all');
       }
 
-      const { data, error } = await query;
+      const { data } = await query;
       if (data) setHistory(data);
     } catch (err) {
       console.error("History fetch error:", err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  // Fetch once on mount (no WebSocket needed — this is a history list)
   useEffect(() => {
-    if (authReady) {
-      fetchHistory();
-    }
-
-    // Subscribe to new notifications in real-time
-    const channel = supabase
-      .channel('public_notifications_history')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'notifications_history' }, 
-        (payload) => {
-          const newItem = payload.new as NotificationRecord;
-          
-          // Apply privacy logic to real-time updates as well
-          const canSee = isManager || 
-                        newItem.target_type === 'all' || 
-                        newItem.recipient_ids?.includes(userId || '');
-
-          if (canSee) {
-            setHistory(prev => [newItem, ...prev].slice(0, limit));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [limit, userId, isManager, authReady]);
+    fetchHistory();
+  }, [userId, isManager, limit]);
 
   if (loading) {
     return (
@@ -123,9 +91,21 @@ export default function NotificationsHistoryList({ limit = 10 }: { limit?: numbe
 
   return (
     <div className="space-y-4">
+      {/* Manual refresh button — replaces the real-time WebSocket */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => fetchHistory(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-purple-600 transition-colors px-3 py-1.5 rounded-xl hover:bg-purple-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+
       {history.map((item) => (
-        <div 
-          key={item.id} 
+        <div
+          key={item.id}
           className="group bg-white p-4 sm:p-8 rounded-[2rem] border-2 border-slate-100 transition-all hover:border-purple-200 hover:shadow-2xl hover:shadow-purple-500/5 hover:-translate-y-1 overflow-hidden"
         >
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">

@@ -1,10 +1,20 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import NotificationsHistoryList from "@/components/NotificationsHistoryList";
 import { Bell, ShieldCheck } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useProfile } from "@/hooks/useProfile";
 
 export default function NotificationsPage() {
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+  }, []);
+
+  const { profile, isManager } = useProfile(session);
+
   return (
     <div>
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -39,7 +49,11 @@ export default function NotificationsPage() {
               <div className="h-px bg-slate-200 flex-1 ml-6 hidden sm:block opacity-50" />
            </div>
            
-           <NotificationsHistoryList limit={20} />
+           <NotificationsHistoryList
+             limit={20}
+             userId={session?.user?.id}
+             isManager={isManager}
+           />
         </div>
 
         {/* Footer Info */}
@@ -52,3 +66,4 @@ export default function NotificationsPage() {
     </div>
   );
 }
+
