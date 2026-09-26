@@ -343,7 +343,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <NotificationManager session={session} />
+      <NotificationManager session={session} profile={profile} />
       {children}
     </>
   );

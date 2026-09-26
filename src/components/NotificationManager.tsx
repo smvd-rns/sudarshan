@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Bell, X, Info, CheckCircle, ExternalLink, AlertCircle } from "lucide-react";
@@ -12,50 +12,90 @@ import { useRouter } from "next/navigation";
  * 1. Auto-syncing push tokens (Default-On logic)
  * 2. Supabase Realtime fallback (Instant in-app alerts)
  * 3. Proactive permission prompting
+ *
+ * Log Ingestion Optimizations:
+ * - Accepts profile prop to avoid redundant DB queries inside realtime callback
+ * - Uses visibility-aware channel lifecycle to prevent WebSocket reconnect storms on Android
+ * - Debounces reconnects so rapid tab switches don't hammer Supabase
  */
-export default function NotificationManager({ session }: { session: any }) {
+export default function NotificationManager({ session, profile }: { session: any; profile?: any }) {
   const router = useRouter();
   const { pushEnabled, isSyncing, permission, subscribe, checkStatus } = usePushNotifications(session);
   const [activeToast, setActiveToast] = useState<{ title: string; body: string; url?: string } | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 1. REALTIME LISTENER
-  useEffect(() => {
+  // Derive roles from the already-loaded profile prop (no extra DB query needed)
+  const userRoles: number[] = Array.isArray(profile?.roles)
+    ? profile.roles
+    : [profile?.role].filter((r): r is number => r != null);
+  const isAdmin = userRoles.includes(1) || userRoles.includes(5);
+  const userId = session?.user?.id;
+
+  function subscribeChannel() {
+    if (channelRef.current) return; // already subscribed
     if (!session) return;
 
-    console.log("[NotificationManager] Initializing Realtime fallback...");
     const channel = supabase.channel('broadcast_notifications')
-      .on('broadcast', { event: 'new_alert' }, async (payload) => {
-        console.log("[NotificationManager] Realtime alert received:", payload);
+      .on('broadcast', { event: 'new_alert' }, (payload) => {
         const { title, body, url, target_type, recipient_ids } = payload.payload;
-        
-        // 1. Identity Check for privacy
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
 
-        // 2. Fetch role for Manager override
-        const { data: profile } = await supabase.from('profiles').select('role, roles').eq('id', user.id).single();
-        const roles = Array.isArray(profile?.roles) ? profile.roles : [profile?.role].filter(r => r != null);
-        const isAdmin = roles.includes(1) || roles.includes(5);
-
-        // 3. Privacy Filter
-        const canSee = isAdmin || target_type === 'all' || recipient_ids?.includes(user.id);
+        // Privacy filter using already-available data — zero extra DB queries
+        const canSee = isAdmin || target_type === 'all' || recipient_ids?.includes(userId);
 
         if (canSee) {
-          // Show In-App Toast
           setActiveToast({ title, body, url });
-
-          // Trigger native notification if push failed or as double-delivery
           if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(title, { body, icon: "/favicon.ico" });
+            new Notification(title, { body, icon: "/favicon.ico" });
           }
         }
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
+    channelRef.current = channel;
+  }
+
+  function unsubscribeChannel() {
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+  }
+
+  // 1. REALTIME LISTENER — visibility-aware to prevent Android reconnect storms
+  useEffect(() => {
+    if (!session) return;
+
+    subscribeChannel();
+
+    const handleVisibilityChange = () => {
+      // Clear any pending reconnect timer
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+
+      if (document.visibilityState === 'hidden') {
+        // Page hidden (app switched, phone locked) — disconnect after 30s to save logs
+        reconnectTimerRef.current = setTimeout(() => {
+          unsubscribeChannel();
+        }, 30000);
+      } else {
+        // Page visible again — reconnect with a short debounce to avoid rapid reconnects
+        reconnectTimerRef.current = setTimeout(() => {
+          subscribeChannel();
+        }, 1000);
+      }
     };
-  }, [session]);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      unsubscribeChannel();
+    };
+  }, [session, userId, isAdmin]);
 
   // 1.5. NATIVE DEEP-LINK LISTENER (Fixes file:/// error)
   useEffect(() => {
