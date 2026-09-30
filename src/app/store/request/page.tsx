@@ -718,8 +718,8 @@ export default function StoreRequest() {
 
           {/* Catalog Items: List View (Default) vs Grid View */}
           {viewMode === "list" ? (
-            /* COMPACT LIST VIEW (DEFAULT - STRICT SINGLE LINE ON MOBILE) */
-            <div className="space-y-1.5">
+            /* COMPACT LIST VIEW - 2 ROW LAYOUT FOR ALL SCREENS */
+            <div className="space-y-2">
               {paginatedItems.map(item => {
                 const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
                 const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
@@ -729,34 +729,38 @@ export default function StoreRequest() {
                 return (
                   <div
                     key={item.id}
-                    className="bg-white rounded-xl border border-slate-200/90 px-2.5 py-2 shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 hover:border-amber-400/80 transition-all group min-w-0"
+                    className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:p-3 shadow-2xs hover:border-amber-400/80 transition-all group min-w-0 space-y-2"
                   >
-                    {/* Left: Item Name */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-amber-700 transition-colors truncate">
-                          {item.item_name}
-                        </span>
-                        {showPrices && (
-                          <span className={`hidden sm:inline-block text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 uppercase tracking-wider ${
-                            item.category === 'Internal' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {item.category}
+                    {/* Row 1: Item Name & Metadata */}
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-amber-700 transition-colors break-words">
+                            {item.item_name}
                           </span>
-                        )}
+                          {showPrices && item.category && (
+                            <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 uppercase tracking-wider ${
+                              item.category === 'Internal' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {item.category}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {showPrices && (
-                        <div className="text-[10px] text-slate-400 font-mono hidden sm:block">CODE: {item.item_code || "N/A"}</div>
+                        <span className="text-xs sm:text-sm font-black text-slate-900 font-mono shrink-0">
+                          ₹{currentUnitPrice}
+                        </span>
                       )}
                     </div>
 
-                    {/* Middle: Variety Selector */}
-                    {parsedVariants.length > 0 ? (
-                      <div className="w-28 sm:w-44 shrink-0">
+                    {/* Row 2: Variant Selector Dropdown & Add Button */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                      {parsedVariants.length > 0 ? (
                         <select
                           value={selectedVarLabel}
                           onChange={e => setCardVariant(item.id, e.target.value)}
-                          className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-amber-500 cursor-pointer text-slate-800 truncate"
+                          className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-amber-500 cursor-pointer text-slate-800 truncate"
                         >
                           {parsedVariants.map((v, idx) => {
                             const avail = v.is_available !== false;
@@ -767,24 +771,16 @@ export default function StoreRequest() {
                             );
                           })}
                         </select>
-                      </div>
-                    ) : (
-                      <div className="text-[10px] text-slate-400 font-medium shrink-0 hidden sm:block">
-                        Standard
-                      </div>
-                    )}
-
-                    {/* Right: Price & Add Button */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {showPrices && (
-                        <span className="text-xs font-black text-slate-900 font-mono shrink-0 hidden sm:inline">
-                          ₹{currentUnitPrice}
-                        </span>
+                      ) : (
+                        <div className="flex-1 text-[11px] text-slate-400 font-medium italic">
+                          Standard Item
+                        </div>
                       )}
+
                       <button
                         type="button"
                         onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                       >
                         <Plus className="w-3.5 h-3.5 stroke-[3]" />
                         <span>Add</span>
@@ -801,8 +797,8 @@ export default function StoreRequest() {
               )}
             </div>
           ) : (
-            /* GRID VIEW (CARDS ON DESKTOP, STRICT SINGLE LINE ON MOBILE) */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+            /* GRID VIEW */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
               {paginatedItems.map(item => {
                 const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
                 const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
@@ -812,61 +808,32 @@ export default function StoreRequest() {
                 return (
                   <div
                     key={item.id}
-                    className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 p-2.5 sm:p-3.5 shadow-2xs flex flex-row sm:flex-col justify-between items-center sm:items-stretch gap-2 space-y-0 sm:space-y-3 hover:border-amber-400/80 transition-all group min-w-0"
+                    className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-2xs flex flex-col justify-between space-y-3 hover:border-amber-400/80 transition-all group min-w-0"
                   >
-                    {/* Mobile Left / Desktop Top Header */}
-                    <div className="min-w-0 flex-1 sm:flex-initial">
-                      <div className="flex items-center sm:items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-bold sm:font-black text-slate-900 text-xs sm:text-sm group-hover:text-amber-700 transition-colors truncate">
-                            {item.item_name}
-                          </div>
-                          {showPrices && (
-                            <div className="text-[10px] text-slate-400 font-mono hidden sm:block">CODE: {item.item_code || "N/A"}</div>
-                          )}
+                    {/* Row 1: Item Name & Header */}
+                    <div className="space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-bold sm:font-black text-slate-900 text-xs sm:text-sm group-hover:text-amber-700 transition-colors break-words">
+                          {item.item_name}
                         </div>
                         {showPrices && (
-                          <span className={`hidden sm:inline-block text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider ${
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider ${
                             item.category === 'Internal' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                           }`}>
                             {item.category}
                           </span>
                         )}
                       </div>
-
-                      {/* Desktop Variety Label & Selector */}
-                      {parsedVariants.length > 0 ? (
-                        <div className="hidden sm:block mt-2.5 space-y-1.5">
-                          <label className="block text-[10px] font-bold text-slate-500 uppercase">Select Variety / Size:</label>
-                          <select
-                            value={selectedVarLabel}
-                            onChange={e => setCardVariant(item.id, e.target.value)}
-                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 cursor-pointer text-slate-800"
-                          >
-                            {parsedVariants.map((v, idx) => {
-                              const avail = v.is_available !== false;
-                              return (
-                                <option key={idx} value={v.label} disabled={!avail}>
-                                  {v.label} {showPrices ? `— ₹${v.cost}` : ''} {avail ? '' : '(Out of Stock)'}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-                      ) : (
-                        <div className="hidden sm:block mt-2 text-[11px] text-slate-500 font-medium">
-                          Standard Variety
-                        </div>
-                      )}
                     </div>
 
-                    {/* Mobile Middle: Variety Selector Dropdown */}
-                    {parsedVariants.length > 0 && (
-                      <div className="sm:hidden w-28 shrink-0">
+                    {/* Row 2: Variety Dropdown Selector */}
+                    {parsedVariants.length > 0 ? (
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Select Variety / Size:</label>
                         <select
                           value={selectedVarLabel}
                           onChange={e => setCardVariant(item.id, e.target.value)}
-                          className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-amber-500 cursor-pointer text-slate-800 truncate"
+                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 cursor-pointer text-slate-800"
                         >
                           {parsedVariants.map((v, idx) => {
                             const avail = v.is_available !== false;
@@ -878,17 +845,21 @@ export default function StoreRequest() {
                           })}
                         </select>
                       </div>
+                    ) : (
+                      <div className="text-[11px] text-slate-400 font-medium italic">
+                        Standard Variety
+                      </div>
                     )}
 
-                    {/* Mobile Right / Desktop Bottom Footer */}
-                    <div className="sm:pt-2 sm:border-t sm:border-slate-100 flex items-center justify-end sm:justify-between gap-2 shrink-0">
+                    {/* Row 3: Price & Add Button */}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                       {showPrices ? (
-                        <div className="hidden sm:block">
+                        <div>
                           <span className="text-[10px] text-slate-400 uppercase font-bold block">Price</span>
                           <span className="text-sm font-black text-slate-900 font-mono">₹{currentUnitPrice}</span>
                         </div>
                       ) : (
-                        <div className="hidden sm:block text-[11px] text-slate-500 font-bold truncate">
+                        <div className="text-[11px] text-slate-500 font-bold truncate">
                           {selectedVarLabel || "Standard Item"}
                         </div>
                       )}
@@ -896,11 +867,10 @@ export default function StoreRequest() {
                       <button
                         type="button"
                         onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg sm:rounded-xl text-xs flex items-center gap-1 sm:gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
                       >
                         <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span className="hidden sm:inline">Add to Request</span>
-                        <span className="sm:hidden">Add</span>
+                        <span>Add</span>
                       </button>
                     </div>
                   </div>

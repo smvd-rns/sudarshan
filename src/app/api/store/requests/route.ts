@@ -83,14 +83,14 @@ export async function POST(request: Request) {
     if (!supabaseIdktAdmin) return NextResponse.json({ error: "IDKT DB not configured" }, { status: 500 });
 
     const body = await request.json();
-    const { item_id, quantity, selected_variant, target_user_id, is_guest, guest_name, guest_temple, guest_mobile, request_date } = body;
+    const { item_id, quantity, selected_variant, target_user_id, is_guest, guest_name, guest_temple, guest_mobile, request_date, auto_approve } = body;
 
     let requestUserId = user.id;
+    const isAdminUser = await checkIsAdmin(user.id);
 
     // Check admin permissions if submitting for another user or a guest
     if (target_user_id || is_guest) {
-      const isAdmin = await checkIsAdmin(user.id);
-      if (!isAdmin) {
+      if (!isAdminUser) {
         return NextResponse.json({ error: "Only admins can create requests for other users" }, { status: 403 });
       }
 
@@ -148,12 +148,15 @@ export async function POST(request: Request) {
 
     const unitCost = storeItem ? getVariantCost(cleanVar, storeItem.variants, Number(storeItem.cost) || 0) : 0;
 
+    const isAutoApprove = Boolean(auto_approve || target_user_id || is_guest) && isAdminUser;
+    const initialStatus = isAutoApprove ? 'approved' : 'pending';
+
     const variantPayload = JSON.stringify({
       variant: cleanVar,
       snapshot_item_name: storeItem?.item_name || "Item",
       snapshot_item_code: storeItem?.item_code || "",
       snapshot_cost: unitCost,
-      approved_by: approvedBy,
+      approved_by: approvedBy || (isAutoApprove ? (user.email || "Admin") : undefined),
       source: source
     });
 
@@ -162,7 +165,7 @@ export async function POST(request: Request) {
       item_id,
       quantity: Number(quantity) || 1,
       selected_variant: variantPayload,
-      status: 'pending'
+      status: initialStatus
     };
 
     if (request_date) {

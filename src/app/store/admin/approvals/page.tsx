@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   Loader2, CheckCircle, XCircle, Clock, Plus, Search, Building, 
-  Calendar, ArrowUpDown, RotateCcw, Edit3, User, UserPlus, X, Check, 
+  Calendar, ArrowUpDown, RotateCcw, Edit3, User, UserPlus, X, Check, ArrowRight,
   ShoppingBag, IndianRupee, Filter, History, Shield, FileText, Trash2, AlertTriangle, RefreshCw,
   CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Copy, Download
 } from "lucide-react";
@@ -203,6 +203,8 @@ export default function StoreApprovals() {
   const [guestItemSearchQuery, setGuestItemSearchQuery] = useState("");
   const [isGuestItemDropdownOpen, setIsGuestItemDropdownOpen] = useState(false);
   const [expandedGuestItemIds, setExpandedGuestItemIds] = useState<string[]>([]);
+  const [modalUserVariantMap, setModalUserVariantMap] = useState<Record<string, string>>({});
+  const [modalGuestVariantMap, setModalGuestVariantMap] = useState<Record<string, string>>({});
 
   const formatLastIssuedDate = (dateStr?: string | null) => {
     if (!dateStr) return { date: "Never Issued", duration: "", isNever: true };
@@ -1296,7 +1298,7 @@ export default function StoreApprovals() {
     }
   };
 
-  // Add Multi-Item Request for Registered App User
+  // Add Multi-Item Request for Registered App User (Auto-Approved by Admin)
   const handleAddUserRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addUserSelectedUserId || userSelectedItems.length === 0) return;
@@ -1322,12 +1324,14 @@ export default function StoreApprovals() {
               item_id: item.item_id,
               quantity: item.quantity,
               request_date: addUserRequestDate || undefined,
+              auto_approve: true,
               selected_variant: JSON.stringify({
                 variant: item.selected_variant || "",
                 snapshot_item_name: item.item_name,
                 snapshot_item_code: item.item_code,
                 snapshot_cost: item.cost,
-                source: "Added by Manager"
+                source: "Added by Manager",
+                approved_by: storeUser?.full_name || storeUser?.email || "Admin"
               })
             })
           })
@@ -1341,7 +1345,7 @@ export default function StoreApprovals() {
         setUserSelectedItems([]);
         setUserItemSearchQuery("");
         setAddUserRequestDate("");
-        fetchPendingRequests(token);
+        handleRefreshData();
       } else {
         const errors = await Promise.all(
           failedResults.map(async r => {
@@ -1349,7 +1353,7 @@ export default function StoreApprovals() {
           })
         );
         alert(`Failed to submit ${failedResults.length} request(s): ` + errors.join(", "));
-        fetchPendingRequests(token);
+        handleRefreshData();
       }
     } catch (err: any) {
       alert("Error submitting request: " + err.message);
@@ -1358,7 +1362,7 @@ export default function StoreApprovals() {
     }
   };
 
-  // Add Multi-Item Request for Guest User (Senior Monk / Visitor)
+  // Add Multi-Item Request for Guest User (Senior Monk / Visitor) (Auto-Approved by Admin)
   const handleGuestRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!guestName.trim() || guestSelectedItems.length === 0) return;
@@ -1386,12 +1390,14 @@ export default function StoreApprovals() {
           item_id: firstItem.item_id,
           quantity: firstItem.quantity,
           request_date: guestRequestDate || undefined,
+          auto_approve: true,
           selected_variant: JSON.stringify({
             variant: firstItem.selected_variant || "",
             snapshot_item_name: firstItem.item_name,
             snapshot_item_code: firstItem.item_code,
             snapshot_cost: firstItem.cost,
-            source: "Guest Entry"
+            source: "Guest Entry",
+            approved_by: storeUser?.full_name || storeUser?.email || "Admin"
           })
         })
       });
@@ -1421,12 +1427,14 @@ export default function StoreApprovals() {
                 item_id: item.item_id,
                 quantity: item.quantity,
                 request_date: guestRequestDate || undefined,
+                auto_approve: true,
                 selected_variant: JSON.stringify({
                   variant: item.selected_variant || "",
                   snapshot_item_name: item.item_name,
                   snapshot_item_code: item.item_code,
                   snapshot_cost: item.cost,
-                  source: "Guest Entry"
+                  source: "Guest Entry",
+                  approved_by: storeUser?.full_name || storeUser?.email || "Admin"
                 })
               })
             })
@@ -1450,7 +1458,7 @@ export default function StoreApprovals() {
       setGuestMobile("");
       setGuestSelectedItems([]);
       setGuestItemSearchQuery("");
-      fetchPendingRequests(token);
+      handleRefreshData();
       fetchApprovedUsers(token);
     } catch (err: any) {
       alert("Error creating guest request: " + err.message);
@@ -1841,8 +1849,8 @@ export default function StoreApprovals() {
                       : "bg-slate-50/90 border-l-4 border-l-amber-500 border-slate-300/80"
                   }`}
                 >
-                  {/* Top Line: Checkbox + Queue # + Full Devotee Name (Prominent & Clear) + Qty Badge */}
-                  <div className="border-b border-slate-200/60 pb-2 space-y-1">
+                  {/* Top Line: Checkbox + Queue # + Full Devotee Name + Qty Badge */}
+                  <div className="border-b border-slate-200/60 pb-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <input
@@ -1863,41 +1871,14 @@ export default function StoreApprovals() {
                         Qty: <span className="font-black text-sm text-black">{req.quantity}</span>
                       </span>
                     </div>
-
-                    {/* Sub-row: Request Source Badge + Temple Name */}
-                    <div className="flex items-center gap-1.5 pl-6 flex-wrap">
-                      {(() => {
-                        const meta = parseVariantMeta(req.selected_variant);
-                        const source = meta.source || (isGuest ? 'Guest Entry' : 'Self Request');
-                        return (
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
-                            source === 'Guest Entry' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                            source === 'Added by Manager' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                            'bg-blue-100 text-blue-800 border border-blue-200'
-                          }`}>
-                            {source}
-                          </span>
-                        );
-                      })()}
-                      {req.store_users?.temple && (
-                        <span className="text-[10px] text-slate-600 font-semibold bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
-                          {req.store_users.temple}
-                        </span>
-                      )}
-                    </div>
                   </div>
 
-                  {/* Middle Line: Item Requested (Prominent!), Code, Variant & Last Issued */}
+                  {/* Middle Line: Item Requested (Prominent!), Variant & Last Issued */}
                   <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                     <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                       <span className="font-black text-slate-900 text-sm tracking-tight truncate">
                         {req.store_items?.item_name || "Item"}
                       </span>
-                      {req.store_items?.item_code && (
-                        <span className="text-[10px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded font-mono shrink-0">
-                          #{req.store_items.item_code}
-                        </span>
-                      )}
                       {parseVariantLabel(req.selected_variant) && (
                         <span className="text-xs font-bold text-black bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">
                           {parseVariantLabel(req.selected_variant)}
@@ -2006,36 +1987,13 @@ export default function StoreApprovals() {
                       </td>
 
                       <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800 text-sm">{req.store_users?.full_name || "Unknown"}</span>
-                          {(() => {
-                            const meta = parseVariantMeta(req.selected_variant);
-                            const source = meta.source || (isGuest ? 'Guest Entry' : 'Self Request');
-                            return (
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                                source === 'Guest Entry' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                                source === 'Added by Manager' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                                'bg-blue-100 text-blue-800 border border-blue-200'
-                              }`}>
-                                {source}
-                              </span>
-                            );
-                          })()}
-                        </div>
+                        <div className="font-bold text-slate-800 text-sm">{req.store_users?.full_name || "Unknown"}</div>
                         <div className="text-xs text-slate-500">{req.store_users?.email}</div>
-                        {req.store_users?.temple && (
-                          <div className="text-[10px] text-slate-400 mt-0.5">Temple: {req.store_users.temple}</div>
-                        )}
                       </td>
 
                       <td className="p-4 text-sm">
                         <div className="font-bold text-slate-800 flex items-center gap-2">
                           <span>{req.store_items?.item_name || "Item"}</span>
-                          {req.store_items?.item_code && (
-                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
-                              #{req.store_items.item_code}
-                            </span>
-                          )}
                         </div>
                         {parseVariantLabel(req.selected_variant) && (
                           <div className="text-xs text-black bg-amber-50 inline-block px-2 py-0.5 rounded-md mt-1 font-bold border border-amber-200/60">
@@ -2669,7 +2627,7 @@ export default function StoreApprovals() {
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      placeholder="Search store items by name, code (#001), category..."
+                      placeholder="Search store items by name, category..."
                       value={userItemSearchQuery}
                       onFocus={() => setIsUserItemDropdownOpen(true)}
                       onChange={e => {
@@ -2722,44 +2680,37 @@ export default function StoreApprovals() {
                           const itemVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
 
                           if (itemVariants.length > 0) {
+                            const selectedVarLabel = modalUserVariantMap[item.id] || itemVariants[0].label;
+                            const matchedVar = itemVariants.find(v => v.label === selectedVarLabel);
+                            const variantKey = `${item.id}_${selectedVarLabel}`;
+                            const isSelected = userSelectedItems.some(i => i.cart_key === variantKey);
                             const isExpanded = expandedUserItemIds.includes(item.id) || Boolean(userItemSearchQuery.trim());
                             return (
                               <div key={item.id} className="border border-slate-200/90 rounded-xl bg-white overflow-hidden shadow-2xs space-y-0">
-                                {/* Main Item Header Row (Clicking toggles variant dropdown container) */}
-                                <div
-                                  onClick={() => toggleUserItemExpand(item.id)}
-                                  className="p-2.5 bg-slate-50/90 hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between gap-2 text-xs select-none border-b border-slate-100"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
-                                        <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
-                                        {item.item_code && (
-                                          <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono shrink-0">
-                                            #{item.item_code}
-                                          </span>
-                                        )}
+                                {/* Main Item Card: Row 1 Name & Price, Row 2 Variant Selector & Select Button */}
+                                <div className="p-2.5 bg-slate-50/90 hover:bg-slate-100 transition-colors space-y-2 border-b border-slate-100">
+                                  <div
+                                    onClick={() => toggleUserItemExpand(item.id)}
+                                    className="flex items-center justify-between gap-2 text-xs select-none cursor-pointer"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="font-bold text-slate-900 text-xs break-words">
+                                          {item.item_name}
+                                        </div>
                                       </div>
-                                      <div className="text-[10px] text-slate-500 font-mono">From ₹{item.cost || 0}</div>
                                     </div>
+                                    <div className="text-[10px] text-slate-500 font-mono shrink-0">From ₹{item.cost || 0}</div>
                                   </div>
 
-                                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                                    {/* Direct Dropdown Selection on Main Item Row */}
+                                  {/* Row 2: Variant Selector Dropdown & Direct Add/Select */}
+                                  <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
                                     <select
-                                      onClick={e => e.stopPropagation()}
-                                      onChange={e => {
-                                        e.stopPropagation();
-                                        if (e.target.value) {
-                                          const matched = itemVariants.find(v => v.label === e.target.value);
-                                          toggleUserItemVariantSelection(item, e.target.value, matched?.cost);
-                                          e.target.value = "";
-                                        }
-                                      }}
-                                      className="hidden sm:inline-block px-2 py-1 bg-white border border-devo-300 rounded-lg text-xs font-bold text-devo-800 outline-none cursor-pointer focus:border-devo-500 shadow-2xs max-w-[130px]"
+                                      value={selectedVarLabel}
+                                      onChange={e => setModalUserVariantMap(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                      className="flex-1 min-w-0 px-2 py-1.5 bg-white border border-devo-300 rounded-lg text-xs font-bold text-devo-800 outline-none cursor-pointer focus:border-devo-500 shadow-2xs truncate"
                                     >
-                                      <option value="">-- Pick Variant --</option>
                                       {itemVariants.map(v => (
                                         <option key={v.label} value={v.label}>
                                           {v.label} (₹{v.cost})
@@ -2767,9 +2718,14 @@ export default function StoreApprovals() {
                                       ))}
                                     </select>
 
-                                    <span className="text-[10px] font-bold text-devo-700 bg-devo-100 px-2 py-1 rounded-lg shrink-0 flex items-center gap-1">
-                                      {itemVariants.length} Variants {isExpanded ? '▲' : '▼'}
-                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleUserItemVariantSelection(item, selectedVarLabel, matchedVar?.cost)}
+                                      className="px-3 py-1.5 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                    >
+                                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                      <span>{isSelected ? "Added ✓" : "Add"}</span>
+                                    </button>
                                   </div>
                                 </div>
 
@@ -2821,37 +2777,29 @@ export default function StoreApprovals() {
                           return (
                             <div
                               key={item.id}
-                              onClick={() => toggleUserItemVariantSelection(item)}
-                              className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 text-xs select-none ${
-                                isSelected ? "bg-devo-50 border border-devo-200/90 shadow-2xs" : "hover:bg-slate-50 border border-transparent"
+                              className={`p-2.5 rounded-xl border transition-all space-y-2 select-none ${
+                                isSelected ? "bg-devo-50 border-devo-200/90 shadow-2xs" : "bg-white hover:bg-slate-50 border-slate-200/80"
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
-                                <div className="shrink-0 text-devo-600">
-                                  {isSelected ? (
-                                    <CheckSquare className="w-4 h-4 text-devo-600" />
-                                  ) : (
-                                    <Square className="w-4 h-4 text-slate-300" />
-                                  )}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="font-bold text-slate-900 text-xs break-words">
+                                  {item.item_name}
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
-                                    <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
-                                    {item.item_code && (
-                                      <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono shrink-0">
-                                        #{item.item_code}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">₹{item.cost || 0}</div>
-                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono">₹{item.cost || 0}</div>
                               </div>
-                              
-                              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
-                                isSelected ? "bg-devo-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-devo-100 hover:text-devo-800"
-                              }`}>
-                                {isSelected ? "Selected ✓" : "+ Select"}
-                              </span>
+
+                              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                <span className="text-[11px] text-slate-400 italic">Standard Item</span>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleUserItemVariantSelection(item)}
+                                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                    isSelected ? "bg-devo-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-devo-100 hover:text-devo-800"
+                                  }`}
+                                >
+                                  {isSelected ? "Selected ✓" : "+ Select"}
+                                </button>
+                              </div>
                             </div>
                           );
                         })
@@ -2883,11 +2831,6 @@ export default function StoreApprovals() {
                           <div className="min-w-0">
                             <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5 truncate">
                               <span className="truncate">{item.item_name}</span>
-                              {item.item_code && (
-                                <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono shrink-0">
-                                  #{item.item_code}
-                                </span>
-                              )}
                             </div>
                             {item.cost !== undefined && (
                               <div className="text-[10px] text-slate-500 font-mono mt-0.5">
@@ -2949,35 +2892,57 @@ export default function StoreApprovals() {
                         </div>
                       ))}
                     </div>
-
-                    <div className="bg-devo-50/60 border border-devo-100 rounded-xl p-2.5 flex items-center justify-between text-xs font-bold text-devo-900">
-                      <span>Total Estimated Amount:</span>
-                      <span className="font-mono text-sm text-devo-700">
-                        ₹{userSelectedItems.reduce((acc, curr) => acc + (curr.cost || 0) * curr.quantity, 0).toFixed(2)}
-                      </span>
-                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Fixed Footer Buttons */}
-              <div className="flex items-center justify-end gap-2 p-3 sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-200/80 shrink-0 z-10">
-                <button
-                  type="button"
-                  onClick={() => setIsAddUserModalOpen(false)}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={isModalSubmitting || !addUserSelectedUserId || userSelectedItems.length === 0}
-                  type="submit"
-                  className="px-5 py-2 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-xl flex items-center gap-2 text-xs shadow-md transition-all disabled:opacity-50"
-                >
-                  {isModalSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  Submit {userSelectedItems.length > 0 ? `(${userSelectedItems.length} Items)` : 'Request'}
-                </button>
-              </div>
+              {/* Floating Bottom Action Bar (Matching Request Page Floating Bar) */}
+              {userSelectedItems.length > 0 ? (
+                <div className="sticky bottom-3 left-3 right-3 mx-3 mb-3 p-3 bg-slate-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-4 duration-300 z-30 shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0 pl-1">
+                    <div className="w-9 h-9 rounded-xl bg-devo-600 text-white font-black text-xs flex items-center justify-center font-mono shrink-0 shadow-xs">
+                      {userSelectedItems.length}
+                    </div>
+                    <div className="truncate">
+                      <div className="text-xs font-bold text-white truncate">
+                        {userSelectedItems.length} {userSelectedItems.length === 1 ? "Item" : "Items"} ({userSelectedItems.reduce((a, b) => a + b.quantity, 0)} total qty)
+                      </div>
+                      <div className="text-[10px] text-amber-300 font-mono font-bold">
+                        Est. Total: ₹{userSelectedItems.reduce((acc, curr) => acc + (curr.cost || 0) * curr.quantity, 0).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddUserModalOpen(false)}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={isModalSubmitting || !addUserSelectedUserId}
+                      type="submit"
+                      className="px-3.5 py-2 bg-devo-600 hover:bg-devo-500 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                    >
+                      {isModalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      <span>Submit Request</span>
+                      <ArrowRight className="w-4 h-4 stroke-[3]" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2 p-3 sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-200/80 shrink-0 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddUserModalOpen(false)}
+                    className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -3067,7 +3032,7 @@ export default function StoreApprovals() {
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      placeholder="Search store items by name, code (#001), category..."
+                      placeholder="Search store items by name, category..."
                       value={guestItemSearchQuery}
                       onFocus={() => setIsGuestItemDropdownOpen(true)}
                       onChange={e => {
@@ -3120,43 +3085,37 @@ export default function StoreApprovals() {
                           const itemVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
 
                           if (itemVariants.length > 0) {
+                            const selectedVarLabel = modalGuestVariantMap[item.id] || itemVariants[0].label;
+                            const matchedVar = itemVariants.find(v => v.label === selectedVarLabel);
+                            const variantKey = `${item.id}_${selectedVarLabel}`;
+                            const isSelected = guestSelectedItems.some(i => i.cart_key === variantKey);
                             const isExpanded = expandedGuestItemIds.includes(item.id) || Boolean(guestItemSearchQuery.trim());
                             return (
                               <div key={item.id} className="border border-slate-200/90 rounded-xl bg-white overflow-hidden shadow-2xs space-y-0">
-                                {/* Main Item Header Row */}
-                                <div
-                                  onClick={() => toggleGuestItemExpand(item.id)}
-                                  className="p-2.5 bg-slate-50/90 hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between gap-2 text-xs select-none border-b border-slate-100"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                                    <div className="min-w-0 flex-1">
-                                      <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
-                                        <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
-                                        {item.item_code && (
-                                          <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono shrink-0">
-                                            #{item.item_code}
-                                          </span>
-                                        )}
+                                {/* Main Item Card: Row 1 Name & Price, Row 2 Variant Selector & Select Button */}
+                                <div className="p-2.5 bg-slate-50/90 hover:bg-slate-100 transition-colors space-y-2 border-b border-slate-100">
+                                  <div
+                                    onClick={() => toggleGuestItemExpand(item.id)}
+                                    className="flex items-center justify-between gap-2 text-xs select-none cursor-pointer"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                      <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="font-bold text-slate-900 text-xs break-words">
+                                          {item.item_name}
+                                        </div>
                                       </div>
-                                      <div className="text-[10px] text-slate-500 font-mono">From ₹{item.cost || 0}</div>
                                     </div>
+                                    <div className="text-[10px] text-slate-500 font-mono shrink-0">From ₹{item.cost || 0}</div>
                                   </div>
 
-                                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                  {/* Row 2: Variant Selector Dropdown & Direct Add/Select */}
+                                  <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
                                     <select
-                                      onClick={e => e.stopPropagation()}
-                                      onChange={e => {
-                                        e.stopPropagation();
-                                        if (e.target.value) {
-                                          const matched = itemVariants.find(v => v.label === e.target.value);
-                                          toggleGuestItemVariantSelection(item, e.target.value, matched?.cost);
-                                          e.target.value = "";
-                                        }
-                                      }}
-                                      className="hidden sm:inline-block px-2 py-1 bg-white border border-purple-300 rounded-lg text-xs font-bold text-purple-800 outline-none cursor-pointer focus:border-purple-500 shadow-2xs max-w-[130px]"
+                                      value={selectedVarLabel}
+                                      onChange={e => setModalGuestVariantMap(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                      className="flex-1 min-w-0 px-2 py-1.5 bg-white border border-purple-300 rounded-lg text-xs font-bold text-purple-800 outline-none cursor-pointer focus:border-purple-500 shadow-2xs truncate"
                                     >
-                                      <option value="">-- Pick Variant --</option>
                                       {itemVariants.map(v => (
                                         <option key={v.label} value={v.label}>
                                           {v.label} (₹{v.cost})
@@ -3164,12 +3123,18 @@ export default function StoreApprovals() {
                                       ))}
                                     </select>
 
-                                    <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-1 rounded-lg shrink-0 flex items-center gap-1">
-                                      {itemVariants.length} Variants {isExpanded ? '▲' : '▼'}
-                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleGuestItemVariantSelection(item, selectedVarLabel, matchedVar?.cost)}
+                                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                    >
+                                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                      <span>{isSelected ? "Added ✓" : "Add"}</span>
+                                    </button>
                                   </div>
                                 </div>
 
+                                {/* Expanded Dropdown Panel listing all variants */}
                                 {isExpanded && (
                                   <div className="p-2 bg-slate-50/40 space-y-1">
                                     <div className="text-[10px] font-bold text-slate-400 uppercase px-1 pb-0.5">Select Variant(s):</div>
@@ -3217,37 +3182,29 @@ export default function StoreApprovals() {
                           return (
                             <div
                               key={item.id}
-                              onClick={() => toggleGuestItemVariantSelection(item)}
-                              className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 text-xs select-none ${
-                                isSelected ? "bg-purple-50 border border-purple-200/90 shadow-2xs" : "hover:bg-slate-50 border border-transparent"
+                              className={`p-2.5 rounded-xl border transition-all space-y-2 select-none ${
+                                isSelected ? "bg-purple-50 border-purple-200/90 shadow-2xs" : "bg-white hover:bg-slate-50 border-slate-200/80"
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
-                                <div className="shrink-0 text-purple-600">
-                                  {isSelected ? (
-                                    <CheckSquare className="w-4 h-4 text-purple-600" />
-                                  ) : (
-                                    <Square className="w-4 h-4 text-slate-300" />
-                                  )}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="font-bold text-slate-900 text-xs break-words">
+                                  {item.item_name}
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-bold text-slate-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-snug min-w-0">
-                                    <span className="text-slate-900 font-bold text-xs break-words">{item.item_name}</span>
-                                    {item.item_code && (
-                                      <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono shrink-0">
-                                        #{item.item_code}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">₹{item.cost || 0}</div>
-                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono">₹{item.cost || 0}</div>
                               </div>
-                              
-                              <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 transition-colors ${
-                                isSelected ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-purple-100 hover:text-purple-800"
-                              }`}>
-                                {isSelected ? "Selected ✓" : "+ Select"}
-                              </span>
+
+                              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                <span className="text-[11px] text-slate-400 italic">Standard Item</span>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleGuestItemVariantSelection(item)}
+                                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                    isSelected ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-purple-100 hover:text-purple-800"
+                                  }`}
+                                >
+                                  {isSelected ? "Selected ✓" : "+ Add"}
+                                </button>
+                              </div>
                             </div>
                           );
                         })
@@ -3279,11 +3236,6 @@ export default function StoreApprovals() {
                           <div className="min-w-0">
                             <div className="font-bold text-slate-800 text-xs flex items-center gap-1.5 truncate">
                               <span className="truncate">{item.item_name}</span>
-                              {item.item_code && (
-                                <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono shrink-0">
-                                  #{item.item_code}
-                                </span>
-                              )}
                             </div>
                             {item.cost !== undefined && (
                               <div className="text-[10px] text-slate-500 font-mono mt-0.5">
@@ -3342,35 +3294,57 @@ export default function StoreApprovals() {
                         </div>
                       ))}
                     </div>
-
-                    <div className="bg-purple-50/60 border border-purple-100 rounded-xl p-2.5 flex items-center justify-between text-xs font-bold text-purple-900">
-                      <span>Total Estimated Amount:</span>
-                      <span className="font-mono text-sm text-purple-700">
-                        ₹{guestSelectedItems.reduce((acc, curr) => acc + (curr.cost || 0) * curr.quantity, 0).toFixed(2)}
-                      </span>
-                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Fixed Footer Buttons */}
-              <div className="flex items-center justify-end gap-2 p-3 sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-200/80 shrink-0 z-10">
-                <button
-                  type="button"
-                  onClick={() => setIsGuestModalOpen(false)}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={isModalSubmitting || !guestName.trim() || guestSelectedItems.length === 0}
-                  type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-2 text-xs shadow-md transition-all disabled:opacity-50"
-                >
-                  {isModalSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  Submit Guest Request {guestSelectedItems.length > 0 ? `(${guestSelectedItems.length} Items)` : ''}
-                </button>
-              </div>
+              {/* Floating Bottom Action Bar (Matching Request Page Floating Bar) */}
+              {guestSelectedItems.length > 0 ? (
+                <div className="sticky bottom-3 left-3 right-3 mx-3 mb-3 p-3 bg-slate-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-4 duration-300 z-30 shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0 pl-1">
+                    <div className="w-9 h-9 rounded-xl bg-purple-600 text-white font-black text-xs flex items-center justify-center font-mono shrink-0 shadow-xs">
+                      {guestSelectedItems.length}
+                    </div>
+                    <div className="truncate">
+                      <div className="text-xs font-bold text-white truncate">
+                        {guestSelectedItems.length} {guestSelectedItems.length === 1 ? "Item" : "Items"} ({guestSelectedItems.reduce((a, b) => a + b.quantity, 0)} total qty)
+                      </div>
+                      <div className="text-[10px] text-purple-300 font-mono font-bold">
+                        Est. Total: ₹{guestSelectedItems.reduce((acc, curr) => acc + (curr.cost || 0) * curr.quantity, 0).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsGuestModalOpen(false)}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={isModalSubmitting || !guestName.trim()}
+                      type="submit"
+                      className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                    >
+                      {isModalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      <span>Submit Request</span>
+                      <ArrowRight className="w-4 h-4 stroke-[3]" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-2 p-3 sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-200/80 shrink-0 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsGuestModalOpen(false)}
+                    className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>

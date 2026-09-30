@@ -522,7 +522,7 @@ export default function QuickStoreRequestPage() {
                 No store items found.
               </div>
             ) : viewMode === "list" ? (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {paginatedItems.map(item => {
                   const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
                   const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
@@ -530,20 +530,26 @@ export default function QuickStoreRequestPage() {
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-xl border border-slate-200/90 px-2.5 py-2 shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 hover:border-violet-400/80 transition-all group min-w-0"
+                      className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:p-3 shadow-2xs hover:border-violet-400/80 transition-all group min-w-0 space-y-2"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition-colors truncate">
-                          {item.item_name}
+                      {/* Row 1: Item Name */}
+                      <div className="flex items-center justify-between gap-2 min-w-0">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition-colors break-words">
+                              {item.item_name}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      {parsedVariants.length > 0 && (
-                        <div className="w-28 sm:w-44 shrink-0">
+                      {/* Row 2: Variant Selector Dropdown & Add Button */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                        {parsedVariants.length > 0 ? (
                           <select
                             value={selectedVarLabel}
                             onChange={e => setCardVariant(item.id, e.target.value)}
-                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
+                            className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
                           >
                             {parsedVariants.map((v, idx) => (
                               <option key={idx} value={v.label} disabled={v.is_available === false}>
@@ -551,23 +557,27 @@ export default function QuickStoreRequestPage() {
                               </option>
                             ))}
                           </select>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="flex-1 text-[11px] text-slate-400 font-medium italic">
+                            Standard Item
+                          </div>
+                        )}
 
-                      <button
-                        type="button"
-                        onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="px-2.5 py-1 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Add</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => addItemToCart(item, selectedVarLabel)}
+                          className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Add</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                 {paginatedItems.map(item => {
                   const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
                   const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
@@ -575,19 +585,21 @@ export default function QuickStoreRequestPage() {
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs hover:shadow-sm hover:border-violet-300 transition-all flex flex-col justify-between space-y-3"
+                      className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-2xs hover:shadow-sm hover:border-violet-300 transition-all flex flex-col justify-between space-y-3"
                     >
+                      {/* Row 1: Item Name */}
                       <div>
-                        <div className="font-bold text-slate-900 text-xs sm:text-sm">{item.item_name}</div>
+                        <div className="font-bold text-slate-900 text-xs sm:text-sm break-words">{item.item_name}</div>
                       </div>
 
-                      {parsedVariants.length > 0 && (
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Select Variety / Size</label>
+                      {/* Row 2: Variant Selector Dropdown */}
+                      {parsedVariants.length > 0 ? (
+                        <div className="space-y-1">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Select Variety / Size</label>
                           <select
                             value={selectedVarLabel}
                             onChange={e => setCardVariant(item.id, e.target.value)}
-                            className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
                           >
                             {parsedVariants.map((v, idx) => (
                               <option key={idx} value={v.label} disabled={v.is_available === false}>
@@ -596,15 +608,20 @@ export default function QuickStoreRequestPage() {
                             ))}
                           </select>
                         </div>
+                      ) : (
+                        <div className="text-[11px] text-slate-400 font-medium italic">
+                          Standard Variety
+                        </div>
                       )}
 
+                      {/* Row 3: Add Button */}
                       <button
                         type="button"
                         onClick={() => addItemToCart(item, selectedVarLabel)}
                         className="w-full py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-98"
                       >
                         <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Add to Request</span>
+                        <span>Add</span>
                       </button>
                     </div>
                   );
