@@ -344,39 +344,51 @@ export default function IdktExplorer({ session, profile }: { session: any, profi
     <div className="space-y-4 sm:space-y-8 animate-in fade-in duration-700">
       
       {/* Header & Search */}
-      <div className="bg-white/80 backdrop-blur-md p-5 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-white shadow-xl shadow-slate-200/50 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-yellow-500/10 p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border-2 border-amber-200/80 shadow-xl shadow-amber-500/5 relative overflow-hidden">
+        {/* Decorative Background Ambient Glow */}
+        <div className="absolute -top-24 -right-24 w-80 h-80 bg-amber-400/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-yellow-400/20 rounded-full blur-3xl pointer-events-none" />
+
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div>
-            <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase font-outfit">ISKCON Desire Tree</h2>
-            <div className="flex items-center gap-2 mt-1 sm:mt-2">
-              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <p className="text-slate-400 font-bold text-[8px] sm:text-[10px] uppercase tracking-widest">Digital Audio Library</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-amber-500/20">
+                <Music className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tighter uppercase font-outfit">ISKCON Desire Tree</h2>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-xs shadow-emerald-500" />
+                  <p className="text-amber-800/80 font-bold text-[9px] sm:text-[10px] uppercase tracking-widest">Digital Audio Library</p>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full lg:w-auto">
             {/* Tab Switcher */}
-            <div className="flex bg-slate-100 p-1 rounded-xl sm:rounded-2xl shrink-0">
+            <div className="flex bg-amber-100/70 p-1.5 rounded-xl sm:rounded-2xl border border-amber-200/80 shrink-0 w-full sm:w-auto justify-center">
               <button
                 onClick={() => setActiveTab('library')}
-                className={`flex items-center gap-2 px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === 'library' ? "bg-white text-orange-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                className={`flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all ${
+                  activeTab === 'library' ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20" : "text-amber-900/70 hover:text-amber-950"
                 }`}
               >
                 <Folder className="w-3.5 h-3.5" /> Library
               </button>
               <button
                 onClick={() => setActiveTab('favorites')}
-                className={`flex items-center gap-2 px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === 'favorites' ? "bg-white text-orange-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                className={`flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all ${
+                  activeTab === 'favorites' ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20" : "text-amber-900/70 hover:text-amber-950"
                 }`}
               >
                 <Clock className="w-3.5 h-3.5" /> Hear Later
               </button>
             </div>
 
-            <div className="relative w-full lg:w-64 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
+            {/* Search Bar with stylish golden border and focus ring */}
+            <div className="relative w-full lg:w-72 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 group-focus-within:text-amber-600 transition-colors" />
               <input
                 type="text"
                 placeholder="Search lectures..."
@@ -385,7 +397,7 @@ export default function IdktExplorer({ session, profile }: { session: any, profi
                   setSearchQuery(e.target.value);
                   handleSearch(e.target.value);
                 }}
-                className="w-full bg-slate-50 border border-slate-100 pl-11 pr-4 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl outline-none font-bold text-[11px] sm:text-xs focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all"
+                className="w-full bg-white border-2 border-amber-300/80 hover:border-amber-400 focus:border-amber-500 pl-11 pr-4 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl outline-none font-bold text-[11px] sm:text-xs text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-amber-500/20 transition-all shadow-xs"
               />
             </div>
             
@@ -393,10 +405,10 @@ export default function IdktExplorer({ session, profile }: { session: any, profi
               <button 
                 onClick={handleSync}
                 disabled={syncing || deepSyncing}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-900 text-white px-3 sm:px-4 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-slate-800 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-3.5 sm:px-4.5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] transition-all shadow-md active:scale-95 disabled:opacity-50"
                 title="Sync this current directory only"
               >
-                {syncing ? <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" /> : <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : <RefreshCw className="w-3.5 h-3.5 text-amber-400" />}
                 {syncing ? "Syncing..." : "Sync Here"}
               </button>
 
@@ -405,29 +417,29 @@ export default function IdktExplorer({ session, profile }: { session: any, profi
                   {deepSyncing ? (
                     <button 
                       onClick={stopDeepSync}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-600 text-white px-3 sm:px-4 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-red-700 transition-all shadow-lg active:scale-95"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-600 text-white px-3.5 sm:px-4.5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-red-700 transition-all shadow-md active:scale-95"
                     >
-                      <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Stop
+                      <X className="w-3.5 h-3.5" /> Stop
                     </button>
                   ) : (
                     <>
                       <button 
                         onClick={() => handleDeepSync(null)}
                         disabled={syncing}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-600 text-white px-3 sm:px-4 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-orange-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3.5 sm:px-4.5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:from-amber-600 hover:to-orange-600 transition-all shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50"
                         title="Recursively scan all undiscovered folders globally"
                       >
-                        <Search className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Global
+                        <Search className="w-3.5 h-3.5" /> Global
                       </button>
 
                       {currentPath !== "/" && (
                         <button 
                           onClick={() => handleDeepSync(currentPath)}
                           disabled={syncing}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 text-white px-3 sm:px-4 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-indigo-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-amber-700 text-white px-3.5 sm:px-4.5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] hover:bg-amber-800 transition-all shadow-md shadow-amber-700/20 active:scale-95 disabled:opacity-50"
                           title="Recursively scan folders inside this directory first"
                         >
-                          <Folder className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Deep
+                          <Folder className="w-3.5 h-3.5" /> Deep
                         </button>
                       )}
                     </>
@@ -564,11 +576,13 @@ export default function IdktExplorer({ session, profile }: { session: any, profi
               )}
             </div>
           ) : (
-            <div className="divide-y divide-slate-50">
+            <div className="p-3 sm:p-5 space-y-3 sm:space-y-4 bg-slate-50/70">
               {items.map((item) => (
                 <div 
                   key={item.id} 
-                  className={`group flex flex-row items-center justify-between p-4 sm:px-10 sm:py-6 hover:bg-white/80 transition-all cursor-pointer border-l-4 border-transparent hover:border-orange-500 gap-4 ${item.is_hidden ? "opacity-40 grayscale-[0.5]" : ""}`}
+                  className={`group flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:px-6 sm:py-5 bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xs hover:shadow-md hover:border-orange-300 transition-all cursor-pointer gap-3 sm:gap-4 ${
+                    currentTrack?.id === item.id ? "ring-2 ring-orange-500/50 border-orange-300 bg-orange-50/30" : ""
+                  } ${item.is_hidden ? "opacity-40 grayscale-[0.5]" : ""}`}
                   onClick={() => {
                     if (item.type === "folder") {
                       navigateTo(item.full_path);
@@ -581,89 +595,97 @@ export default function IdktExplorer({ session, profile }: { session: any, profi
                     }
                   }}
                 >
-                  <div className="flex items-center gap-3 sm:gap-5 min-w-0 flex-1">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-xl sm:rounded-2xl shrink-0 shadow-sm transition-all group-hover:scale-110 ${item.type === "folder" ? "bg-orange-50 text-orange-600" : "bg-indigo-50 text-indigo-600"}`}>
-                      {item.type === "folder" ? <Folder className="w-5 h-5 sm:w-6 sm:h-6" /> : <Music className="w-5 h-5 sm:w-6 sm:h-6" />}
+                  {/* Top Section: Icon & Full Width Title */}
+                  <div className="flex items-start sm:items-center gap-2.5 sm:gap-5 min-w-0 flex-1 w-full">
+                    <div className={`w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center rounded-xl sm:rounded-2xl shrink-0 shadow-xs transition-all group-hover:scale-105 mt-0.5 sm:mt-0 ${item.type === "folder" ? "bg-orange-50 text-orange-600 border border-orange-100" : "bg-indigo-50 text-indigo-600 border border-indigo-100"}`}>
+                      {item.type === "folder" ? <Folder className="w-4.5 h-4.5 sm:w-6 sm:h-6" /> : <Music className="w-4.5 h-4.5 sm:w-6 sm:h-6" />}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className={`font-black text-[12px] sm:text-base tracking-tight truncate transition-colors ${currentTrack?.id === item.id ? "text-orange-600" : "text-slate-800 group-hover:text-slate-900"}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className={`font-bold text-[13px] sm:text-base leading-snug line-clamp-2 sm:line-clamp-1 transition-colors ${currentTrack?.id === item.id ? "text-orange-600" : "text-slate-900 group-hover:text-orange-600"}`}>
                           {item.name}
-                        </p>
+                        </h4>
                         {item.is_hidden && (
                           <span className="bg-slate-900 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full shrink-0">Hidden</span>
                         )}
                       </div>
-                      <p className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 sm:mt-1">
+                      <p className="hidden sm:block text-[9px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 sm:mt-1">
                         {getSpeakerName(item)}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                    {/* Admin Actions */}
-                    {isSuperAdmin && (
-                      <div className="flex items-center gap-1 sm:gap-2 mr-2 border-r border-slate-100 pr-2 sm:pr-4">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleManageItem(item, item.is_hidden ? 'unhide' : 'hide');
-                          }}
-                          className={`p-2 rounded-lg transition-all ${item.is_hidden ? "bg-orange-500 text-white" : "bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white"}`}
-                          title={item.is_hidden ? "Show to public" : "Hide from public"}
-                        >
-                          {item.is_hidden ? <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleManageItem(item, 'delete');
-                          }}
-                          className="p-2 bg-slate-50 text-slate-400 hover:bg-red-600 hover:text-white rounded-lg transition-all"
-                          title="Delete recursively"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        </button>
-                      </div>
-                    )}
+                  {/* Bottom Row on Mobile / Right Controls on Desktop */}
+                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                    <p className="sm:hidden text-[9px] font-extrabold text-slate-500 uppercase tracking-wider truncate max-w-[170px]">
+                      {getSpeakerName(item)}
+                    </p>
 
-                    {item.type === "audio" && (
-                      <>
-                        <button 
-                          onClick={(e) => toggleWatchLater(e, item.id)}
-                          className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-all border ${
-                            favoriteIds.includes(item.id) 
-                              ? "bg-orange-600 border-orange-600 text-white" 
-                              : "bg-slate-50 border-slate-100 text-slate-400 hover:bg-orange-50 hover:text-orange-600"
-                          }`}
-                          title={favoriteIds.includes(item.id) ? "Remove from Hear Later" : "Add to Hear Later"}
-                        >
-                          <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const audioPlaylist = items.filter((i: any) => i.type === "audio");
-                            playTrack(item, audioPlaylist);
-                          }}
-                          className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl transition-all ${currentTrack?.id === item.id && isPlaying ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"}`}
-                        >
-                          <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </button>
-                        <a 
-                          href={item.url} 
-                          target="_blank" 
-                          onClick={(e) => e.stopPropagation()}
-                          className="hidden sm:flex p-2.5 bg-slate-50 text-slate-400 hover:bg-indigo-100 hover:text-indigo-600 rounded-xl transition-all"
-                          title="Direct Link"
-                        >
-                          <ExternalLink className="w-5 h-5" />
-                        </a>
-                      </>
-                    )}
-                    {item.type === "folder" && (
-                      <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-200 group-hover:text-orange-400 transition-colors" />
-                    )}
+                    <div className="flex items-center gap-1.5 sm:gap-4 ml-auto">
+                      {/* Admin Actions */}
+                      {isSuperAdmin && (
+                        <div className="flex items-center gap-1 sm:gap-2 mr-1 sm:mr-2 border-r border-slate-100 pr-1.5 sm:pr-4">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleManageItem(item, item.is_hidden ? 'unhide' : 'hide');
+                            }}
+                            className={`p-1.5 sm:p-2 rounded-lg transition-all ${item.is_hidden ? "bg-orange-500 text-white" : "bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white"}`}
+                            title={item.is_hidden ? "Show to public" : "Hide from public"}
+                          >
+                            {item.is_hidden ? <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleManageItem(item, 'delete');
+                            }}
+                            className="p-1.5 sm:p-2 bg-slate-50 text-slate-400 hover:bg-red-600 hover:text-white rounded-lg transition-all"
+                            title="Delete recursively"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {item.type === "audio" && (
+                        <>
+                          <button 
+                            onClick={(e) => toggleWatchLater(e, item.id)}
+                            className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl transition-all border ${
+                              favoriteIds.includes(item.id) 
+                                ? "bg-orange-600 border-orange-600 text-white" 
+                                : "bg-slate-50 border-slate-100 text-slate-400 hover:bg-orange-50 hover:text-orange-600"
+                            }`}
+                            title={favoriteIds.includes(item.id) ? "Remove from Hear Later" : "Add to Hear Later"}
+                          >
+                            <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const audioPlaylist = items.filter((i: any) => i.type === "audio");
+                              playTrack(item, audioPlaylist);
+                            }}
+                            className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl transition-all ${currentTrack?.id === item.id && isPlaying ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"}`}
+                          >
+                            <PlayCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </button>
+                          <a 
+                            href={item.url} 
+                            target="_blank" 
+                            onClick={(e) => e.stopPropagation()}
+                            className="hidden sm:flex p-2.5 bg-slate-50 text-slate-400 hover:bg-indigo-100 hover:text-indigo-600 rounded-xl transition-all"
+                            title="Direct Link"
+                          >
+                            <ExternalLink className="w-5 h-5" />
+                          </a>
+                        </>
+                      )}
+                      {item.type === "folder" && (
+                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-200 group-hover:text-orange-400 transition-colors" />
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

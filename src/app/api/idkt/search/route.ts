@@ -5,7 +5,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * IDKT SEARCH API
- * Global fuzzy search across all audio lectures.
+ * Global multi-token fuzzy search across all audio lectures.
+ * Allows searching out-of-order terms (e.g. "the holy name" matches "Holy Name - The Weapon of Lord Chaitanya").
  */
 
 export async function GET(req: NextRequest) {
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q");
 
-    if (!query || query.length < 2) {
+    if (!query || query.trim().length < 2) {
       return NextResponse.json({ items: [] });
     }
 
@@ -26,11 +27,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
     }
 
+    const rawTokens = query.trim().split(/\s+/).filter(Boolean);
+    const stopWords = new Set(["the", "a", "an", "of", "in", "on", "at", "by", "for", "with", "to", "and", "-"]);
+    
+    // Filter out stop words unless the entire query consists only of stop words
+    let searchTokens = rawTokens.filter(t => !stopWords.has(t.toLowerCase()));
+    if (searchTokens.length === 0) {
+      searchTokens = rawTokens;
+    }
+
     let dbQuery = client
       .from("idkt_items")
       .select("*")
-      .eq("type", "audio")
-      .ilike("name", `%${query}%`);
+      .eq("type", "audio");
+
+    // Apply multi-token AND matching so all key search terms must exist regardless of word order
+    for (const token of searchTokens) {
+      dbQuery = dbQuery.ilike("name", `%${token}%`);
+    }
 
     if (role !== 1) {
       dbQuery = dbQuery.eq("is_hidden", false);

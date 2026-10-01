@@ -68,28 +68,30 @@ export default function IdktPlayer() {
 
   return (
     <div className="fixed [bottom:calc(env(safe-area-inset-bottom,0px)+88px)] sm:bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-4xl z-[100] animate-in slide-in-from-bottom-10 duration-500">
-      <div className="bg-white/95 backdrop-blur-2xl border border-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] rounded-[2rem] sm:rounded-[2.5rem] p-3 sm:p-6 flex flex-col gap-2 sm:gap-3 relative">
+      <div className="bg-gradient-to-r from-blue-950 via-indigo-900 to-slate-900 backdrop-blur-2xl border-2 border-amber-500/40 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.8)] rounded-[2rem] sm:rounded-[2.5rem] p-3.5 sm:p-6 flex flex-col gap-2.5 sm:gap-3.5 relative">
         
         {/* Close Button */}
         <button 
           onClick={stopTrack}
-          className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 w-7 h-7 sm:w-8 sm:h-8 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg z-20 border-2 border-white"
+          className="absolute -top-2.5 -right-2.5 sm:-top-3 sm:-right-3 w-8 h-8 sm:w-9 sm:h-9 bg-amber-500 text-slate-950 rounded-full flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-xl z-20 border-2 border-amber-300 active:scale-95"
+          title="Close player"
         >
-          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <X className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[3]" />
         </button>
 
         {/* Track Title - Above Progress Bar */}
-        <div className="px-2 sm:px-4 pt-1 sm:pt-2">
-          <h4 className="text-[10px] sm:text-xs font-black text-slate-900 truncate tracking-tight leading-tight uppercase">
+        <div className="px-2 sm:px-4 pt-1">
+          <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight leading-snug line-clamp-2 sm:line-clamp-1">
             {currentTrack.name}
           </h4>
-          <p className="text-[7px] sm:text-[9px] font-bold text-orange-600/70 uppercase tracking-[0.2em] mt-0.5">
+          <p className="text-[8px] sm:text-[10px] font-extrabold text-amber-300 uppercase tracking-widest mt-1 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
             ISKCON Desire Tree • {getSpeakerName(currentTrack)}
           </p>
         </div>
 
         {/* Progress Bar */}
-        <div className="group relative w-full h-4 sm:h-2 bg-slate-100 rounded-full cursor-pointer flex items-center px-0.5 mt-1 sm:mt-0">
+        <div className="group relative w-full h-4 sm:h-2 bg-blue-950/80 rounded-full cursor-pointer flex items-center px-0.5 mt-1 sm:mt-0 border border-blue-800/40">
           <input
             type="range"
             min="0"
@@ -98,15 +100,15 @@ export default function IdktPlayer() {
             onChange={handleSeek}
             className="absolute inset-x-0 -top-1 bottom-0 w-full opacity-0 z-20 cursor-pointer"
           />
-          <div className="relative w-full h-1.5 sm:h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <div className="relative w-full h-1.5 sm:h-1.5 bg-blue-950 rounded-full overflow-hidden">
             <div 
-              className="absolute top-0 left-0 h-full bg-linear-to-r from-orange-500 to-orange-400 rounded-full transition-all duration-100"
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 rounded-full transition-all duration-100"
               style={{ width: `${(progress / (duration || 1)) * 100}%` }}
             />
           </div>
           {/* Slider Thumb Handle */}
           <div 
-            className="absolute h-4 w-4 sm:h-3.5 sm:w-3.5 bg-white border-2 border-orange-500 rounded-full shadow-lg z-10 transition-all duration-100 pointer-events-none"
+            className="absolute h-4 w-4 sm:h-3.5 sm:w-3.5 bg-amber-400 border-2 border-white rounded-full shadow-lg z-10 transition-all duration-100 pointer-events-none"
             style={{ 
               left: `calc(${(progress / (duration || 1)) * 100}% - 8px)`,
               opacity: progress > 0 ? 1 : 0
@@ -121,20 +123,20 @@ export default function IdktPlayer() {
             <button 
               onClick={playPrevious}
               disabled={!playlist.length || playlist.findIndex(t => t.id === currentTrack?.id) === 0}
-              className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400 hover:text-orange-600 disabled:opacity-20 disabled:hover:text-slate-400 transition-all rounded-full hover:bg-orange-50 flex items-center justify-center shrink-0"
+              className="w-8 h-8 sm:w-10 sm:h-10 text-amber-200 hover:text-amber-400 disabled:opacity-20 disabled:hover:text-slate-400 transition-all rounded-full hover:bg-blue-900/60 flex items-center justify-center shrink-0"
             >
               <SkipBack className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
             </button>
             <button 
               onClick={togglePlay}
-              className="w-10 h-10 sm:w-14 sm:h-14 bg-linear-to-br from-indigo-600 to-indigo-700 text-white rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xl shadow-indigo-100 active:scale-95 shrink-0"
+              className="w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 text-slate-950 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xl shadow-orange-500/30 active:scale-95 shrink-0 border-2 border-amber-300 font-bold"
             >
-              {isPlaying ? <Pause className="w-4 h-4 sm:w-6 sm:h-6 fill-current" /> : <Play className="w-4 h-4 sm:w-6 sm:h-6 fill-current ml-0.5" />}
+              {isPlaying ? <Pause className="w-5 h-5 sm:w-6 sm:h-6 fill-current" /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current ml-0.5" />}
             </button>
             <button 
               onClick={playNext}
               disabled={!playlist.length || playlist.findIndex(t => t.id === currentTrack?.id) === playlist.length - 1}
-              className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400 hover:text-orange-600 disabled:opacity-20 disabled:hover:text-slate-400 transition-all rounded-full hover:bg-orange-50 flex items-center justify-center shrink-0"
+              className="w-8 h-8 sm:w-10 sm:h-10 text-amber-200 hover:text-amber-400 disabled:opacity-20 disabled:hover:text-slate-400 transition-all rounded-full hover:bg-blue-900/60 flex items-center justify-center shrink-0"
             >
               <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
             </button>
@@ -152,7 +154,7 @@ export default function IdktPlayer() {
               className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl border transition-all active:scale-95 shadow-sm ${
                 saveStatus === 'success' 
                   ? "bg-emerald-500 border-emerald-400 text-white" 
-                  : "bg-slate-50 border-slate-100 text-slate-400 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-100"
+                  : "bg-blue-950/80 border-blue-700/60 text-amber-200 hover:bg-blue-900 hover:text-amber-400 hover:border-amber-400/50"
               }`}
               title={saveStatus === 'success' ? "Position Saved!" : "Save playback position"}
             >
@@ -166,32 +168,32 @@ export default function IdktPlayer() {
 
           {/* Right Section / Extra Mobile Menu */}
           <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end shrink-0">
-            <div className="text-[9px] sm:text-[10px] font-black text-slate-400 tabular-nums bg-slate-50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-slate-100">
+            <div className="text-[10px] sm:text-[11px] font-black text-amber-200 tabular-nums bg-blue-950/90 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full border border-blue-700/60">
               {formatTime(progress)}
             </div>
             
             {/* Desktop Extras */}
             <div className="hidden sm:flex items-center gap-4">
               {/* Autoplay Toggle */}
-              <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Autoplay</span>
+              <div className="flex items-center gap-2 bg-blue-950/90 px-3 py-1.5 rounded-full border border-blue-700/60">
+                <span className="text-[9px] font-black text-amber-200 uppercase tracking-widest">Autoplay</span>
                 <button 
                   onClick={() => setAutoplay(!autoplay)}
-                  className={`w-8 h-4 rounded-full relative transition-colors ${autoplay ? "bg-orange-500" : "bg-slate-200"}`}
+                  className={`w-8 h-4 rounded-full relative transition-colors ${autoplay ? "bg-amber-500" : "bg-blue-900"}`}
                 >
-                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${autoplay ? "left-4.5" : "left-0.5"}`} />
+                  <div className={`absolute top-0.5 w-3 h-3 bg-slate-950 rounded-full transition-all ${autoplay ? "left-4.5" : "left-0.5"}`} />
                 </button>
               </div>
 
               <div className="relative">
                 <button 
                   onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                  className="text-[10px] font-black text-slate-600 hover:text-orange-600 transition-colors px-3 py-1.5 rounded-full border border-slate-200 bg-white"
+                  className="text-[10px] font-black text-amber-200 hover:text-amber-400 transition-colors px-3 py-1.5 rounded-full border border-blue-700/60 bg-blue-950/90"
                 >
                   {playbackSpeed}x
                 </button>
                 {showSpeedMenu && (
-                  <div className="absolute bottom-full right-0 mb-4 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 min-w-[80px] animate-in slide-in-from-bottom-2 duration-200">
+                  <div className="absolute bottom-full right-0 mb-4 bg-blue-950 border border-blue-800 shadow-2xl rounded-2xl p-2 min-w-[80px] animate-in slide-in-from-bottom-2 duration-200">
                     {speedOptions.map(speed => (
                       <button
                         key={speed}
@@ -199,7 +201,7 @@ export default function IdktPlayer() {
                           setPlaybackSpeed(speed);
                           setShowSpeedMenu(false);
                         }}
-                        className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-xl transition-colors ${playbackSpeed === speed ? "bg-orange-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                        className={`w-full text-left px-3 py-2 text-[10px] font-bold rounded-xl transition-colors ${playbackSpeed === speed ? "bg-amber-500 text-slate-950 font-black" : "text-amber-200 hover:bg-blue-900"}`}
                       >
                         {speed}x
                       </button>
@@ -210,9 +212,9 @@ export default function IdktPlayer() {
 
               <div className="flex items-center gap-2 group/vol">
                 <button onClick={() => setIsMuted(!isMuted)}>
-                  <Volume2 className="w-5 h-5 text-slate-400 hover:text-orange-600 transition-colors shrink-0" />
+                  <Volume2 className="w-5 h-5 text-amber-200 hover:text-amber-400 transition-colors shrink-0" />
                 </button>
-                <div className="w-16 lg:w-20 h-1 bg-slate-100 rounded-full relative overflow-hidden">
+                <div className="w-16 lg:w-20 h-1 bg-blue-950 rounded-full relative overflow-hidden border border-blue-800/40">
                   <input
                     type="range"
                     min="0"
@@ -223,7 +225,7 @@ export default function IdktPlayer() {
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                   <div 
-                    className="absolute top-0 left-0 h-full bg-slate-400 rounded-full group-hover/vol:bg-orange-500 transition-all"
+                    className="absolute top-0 left-0 h-full bg-amber-400 rounded-full group-hover/vol:bg-orange-500 transition-all"
                     style={{ width: `${volume * 100}%` }}
                   />
                 </div>
@@ -234,24 +236,24 @@ export default function IdktPlayer() {
             <div className="sm:hidden relative">
               <button 
                 onClick={() => setShowMobileExtra(!showMobileExtra)}
-                className="p-2 text-slate-400 hover:text-orange-500 bg-slate-50 rounded-full active:bg-orange-50 transition-colors"
+                className="p-2 text-amber-200 hover:text-amber-400 bg-blue-950/90 rounded-full active:bg-blue-900 transition-colors border border-blue-700/60"
               >
                 <Settings className={`w-4 h-4 ${showMobileExtra ? 'rotate-90' : ''} transition-transform duration-300`} />
               </button>
               
               {showMobileExtra && (
-                <div className="absolute bottom-full right-0 mb-4 bg-white border border-slate-100 shadow-2xl rounded-2xl p-4 min-w-[160px] animate-in slide-in-from-bottom-2 duration-200 z-50">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-3">Playback Settings</p>
+                <div className="absolute bottom-full right-0 mb-4 bg-blue-950 border border-blue-800 shadow-2xl rounded-2xl p-4 min-w-[160px] animate-in slide-in-from-bottom-2 duration-200 z-50">
+                  <p className="text-[8px] font-black text-amber-300 uppercase tracking-widest mb-3">Playback Settings</p>
                   
                   <div className="space-y-4">
                     {/* Mobile Autoplay Toggle */}
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-50">
-                      <p className="text-[10px] font-bold text-slate-600">Autoplay Next</p>
+                    <div className="flex items-center justify-between pb-3 border-b border-blue-900">
+                      <p className="text-[10px] font-bold text-amber-200">Autoplay Next</p>
                       <button 
                         onClick={() => setAutoplay(!autoplay)}
-                        className={`w-8 h-4 rounded-full relative transition-colors ${autoplay ? "bg-orange-500" : "bg-slate-200"}`}
+                        className={`w-8 h-4 rounded-full relative transition-colors ${autoplay ? "bg-amber-500" : "bg-blue-900"}`}
                       >
-                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${autoplay ? "left-4.5" : "left-0.5"}`} />
+                        <div className={`absolute top-0.5 w-3 h-3 bg-slate-950 rounded-full transition-all ${autoplay ? "left-4.5" : "left-0.5"}`} />
                       </button>
                     </div>
 
@@ -262,7 +264,7 @@ export default function IdktPlayer() {
                           <button
                             key={speed}
                             onClick={() => setPlaybackSpeed(speed)}
-                            className={`py-1.5 text-[10px] font-bold rounded-lg transition-colors ${playbackSpeed === speed ? "bg-orange-600 text-white" : "bg-slate-50 text-slate-600"}`}
+                            className={`py-1.5 text-[10px] font-bold rounded-lg transition-colors ${playbackSpeed === speed ? "bg-amber-500 text-slate-950 font-black" : "bg-blue-900 text-amber-200"}`}
                           >
                             {speed}x
                           </button>
@@ -271,8 +273,8 @@ export default function IdktPlayer() {
                     </div>
                     
                     {/* Mobile Volume Slider */}
-                    <div className="flex items-center gap-3 pt-2 border-t border-slate-50">
-                      <Volume2 className="w-4 h-4 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-3 pt-2 border-t border-blue-900">
+                      <Volume2 className="w-4 h-4 text-amber-200 shrink-0" />
                       <input
                         type="range"
                         min="0"
@@ -280,7 +282,7 @@ export default function IdktPlayer() {
                         step="0.1"
                         value={volume}
                         onChange={(e) => setVolume(Number(e.target.value))}
-                        className="flex-1 h-1 bg-slate-100 rounded-full appearance-none cursor-pointer accent-orange-500"
+                        className="flex-1 h-1 bg-blue-900 rounded-full appearance-none cursor-pointer accent-amber-400"
                       />
                     </div>
                   </div>

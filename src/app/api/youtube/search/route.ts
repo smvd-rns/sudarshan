@@ -37,9 +37,6 @@ export async function GET(request: NextRequest) {
           isAdmin = userRoles.includes(1);
         }
     }
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     // 2. Determine allowed channel IDs
     // If channelId param was explicitly provided (e.g., user is inside a channel or has filters active),
     // trust it directly — it means the frontend already verified those channels are visible to the user.
@@ -58,8 +55,8 @@ export async function GET(request: NextRequest) {
         finalChannelIds = (allActiveChannels || []).map(c => c.channel_id);
         console.log(`[Search API] Admin searching ALL ${finalChannelIds.length} channels.`);
       }
-    } else if (!finalChannelIds) {
-      // Normal user with NO explicit channel filter: restrict to accessible channels only
+    } else if (userId && !finalChannelIds) {
+      // Logged-in user with NO explicit channel filter: restrict to accessible channels only
       const { data: allowedChannels, error: rpcError } = await supabase.rpc('get_user_accessible_channels', { 
         requesting_user_id: userId 
       });

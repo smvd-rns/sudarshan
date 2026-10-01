@@ -766,11 +766,12 @@ export default function YouTubeChannelHub() {
   const displayVideos = activeTab === "favorites" ? favoriteVideos : videos;
 
   const filteredVideos = (() => {
+    const queryToUse = activeSearchQuery;
     const localMatches = displayVideos.filter((v: VideoItem) =>
-      v.title.toLowerCase().includes(activeSearchQuery.toLowerCase())
+      v.title.toLowerCase().includes(queryToUse.toLowerCase())
     );
 
-    if (!activeSearchQuery.trim() || !activeChannel) {
+    if (!queryToUse.trim() || !activeChannel) {
       return localMatches;
     }
 
@@ -1502,16 +1503,53 @@ export default function YouTubeChannelHub() {
             </div>
             
             {/* Search Input */}
-            <div className="relative flex-grow max-w-md w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search lectures in this channel..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-devo-500 font-bold text-[11px] sm:text-xs outline-none transition-all focus:bg-white focus:shadow-sm"
-              />
-            </div>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                setActiveSearchQuery(searchQuery);
+              }}
+              className="relative flex-grow max-w-md w-full"
+            >
+              <div className="relative flex items-center">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search lectures in this channel..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (!e.target.value.trim()) {
+                      setActiveSearchQuery("");
+                    }
+                  }}
+                  className="w-full pl-10 pr-28 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:border-devo-500 font-bold text-[11px] sm:text-xs outline-none transition-all focus:bg-white focus:shadow-sm"
+                />
+                
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setActiveSearchQuery("");
+                      }}
+                      className="p-1 rounded-full hover:bg-slate-200 text-slate-400 transition-colors"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  
+                  <button
+                    type="submit"
+                    disabled={!searchQuery.trim()}
+                    className="px-3 py-1.5 bg-devo-600 hover:bg-devo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 whitespace-nowrap shadow-sm"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+            </form>
             
             {/* Autoplay & Count Controls */}
             <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0">
