@@ -28,6 +28,64 @@ export function cleanVariantText(text: string | undefined): string {
 }
 
 /**
+ * Returns a full product display name combining the item name and variant label.
+ * e.g. item_name: "Bata Sandals", variant: "Size 8" -> "Bata Sandals — Size 8"
+ *      item_name: "Cowpathy Soap", variant: "Cowpathy Soap 100g" -> "Cowpathy Soap 100g"
+ */
+export function getFullVariantProductName(itemName: string, variantLabel: string | undefined | null): string {
+  if (!variantLabel || !variantLabel.trim()) return itemName;
+  const cleanedVar = cleanVariantText(variantLabel);
+  if (!cleanedVar) return itemName;
+
+  const itemLower = (itemName || "").toLowerCase().trim();
+  const varLower = cleanedVar.toLowerCase().trim();
+
+  if (!itemLower || varLower === itemLower || varLower.startsWith(itemLower) || varLower.includes(itemLower)) {
+    return cleanedVar;
+  }
+
+  return `${itemName} — ${cleanedVar}`;
+}
+
+/**
+ * Filters the list of variants for a store item based on the active search query.
+ * If search query is empty, returns all parsed variants.
+ * If the main item_name/code itself fully matches the search query, returns all variants.
+ * Otherwise, filters to only the specific variants matching the search query.
+ */
+export function filterVariantsForSearch(
+  item: { item_name?: string; item_code?: string; category?: string },
+  parsedVariants: ItemVariant[],
+  searchQuery: string
+): ItemVariant[] {
+  if (!searchQuery || !searchQuery.trim() || !parsedVariants || parsedVariants.length === 0) {
+    return parsedVariants || [];
+  }
+
+  const rawQuery = searchQuery.toLowerCase().trim();
+  const queryTokens = rawQuery.split(/\s+/).filter(Boolean);
+  if (queryTokens.length === 0) return parsedVariants;
+
+  // Check if main item details (item_name, item_code, category) match ALL search tokens
+  const mainDetails = `${item.item_name || ''} ${item.item_code || ''} ${item.category || ''}`.toLowerCase();
+  const mainMatchesAll = queryTokens.every(token => mainDetails.includes(token));
+
+  // If the main item name/code matches all search tokens, display all variants
+  if (mainMatchesAll) {
+    return parsedVariants;
+  }
+
+  // Otherwise, filter to only the specific variants matching all search tokens
+  const matched = parsedVariants.filter(v => {
+    const vText = `${item.item_name || ''} ${v.label || ''} ${v.brand || ''} ${v.size || ''}`.toLowerCase();
+    return queryTokens.every(token => vText.includes(token));
+  });
+
+  // Fallback to all variants if matching returned empty (should not happen if item was matched)
+  return matched.length > 0 ? matched : parsedVariants;
+}
+
+/**
  * Parses any raw variant data (strings, stringified JSON, or variant objects)
  * into a standardized ItemVariant[] array with cleaned labels.
  */

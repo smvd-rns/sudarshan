@@ -26,7 +26,7 @@ import {
   Clock,
   ArrowRight
 } from "lucide-react";
-import { parseItemVariants, getVariantCost, matchStoreItem, ItemVariant } from "@/lib/store-variant-utils";
+import { parseItemVariants, getVariantCost, matchStoreItem, getFullVariantProductName, filterVariantsForSearch, ItemVariant } from "@/lib/store-variant-utils";
 import { PaginationControls } from "@/components/PaginationControls";
 
 interface ApprovedUser {
@@ -79,6 +79,57 @@ export default function QuickStoreRequestPage() {
   // Multi-item Cart Basket
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      ) {
+        setIsKeyboardOpen(true);
+      }
+    };
+
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      ) {
+        setIsKeyboardOpen(false);
+      }
+    };
+
+    window.addEventListener("focusin", handleFocusIn);
+    window.addEventListener("focusout", handleFocusOut);
+
+    const vv = window.visualViewport;
+    const handleVvResize = () => {
+      if (vv) {
+        setIsKeyboardOpen(vv.height < window.innerHeight * 0.8);
+      }
+    };
+
+    if (vv) {
+      vv.addEventListener("resize", handleVvResize);
+    }
+
+    return () => {
+      window.removeEventListener("focusin", handleFocusIn);
+      window.removeEventListener("focusout", handleFocusOut);
+      if (vv) {
+        vv.removeEventListener("resize", handleVvResize);
+      }
+    };
+  }, []);
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -522,107 +573,151 @@ export default function QuickStoreRequestPage() {
                 No store items found.
               </div>
             ) : viewMode === "list" ? (
-              <div className="space-y-2">
+              /* TREE DIAGRAM LIST VIEW */
+              <div className="space-y-3">
                 {paginatedItems.map(item => {
-                  const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
-                  const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
+                  const rawVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
+                  const parsedVariants = filterVariantsForSearch(item, rawVariants, searchQuery);
 
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:p-3 shadow-2xs hover:border-violet-400/80 transition-all group min-w-0 space-y-2"
+                      className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs hover:border-violet-400/80 transition-all space-y-2.5 min-w-0"
                     >
-                      {/* Row 1: Item Name */}
-                      <div className="flex items-center justify-between gap-2 min-w-0">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-violet-700 transition-colors break-words">
-                              {item.item_name}
-                            </span>
-                          </div>
+                      {/* Main Item Root Node */}
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="w-4 h-4 text-violet-600 shrink-0" />
+                          <span className="font-bold text-slate-900 text-xs sm:text-sm break-words">
+                            {item.item_name}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Row 2: Variant Selector Dropdown & Add Button */}
-                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                        {parsedVariants.length > 0 ? (
-                          <select
-                            value={selectedVarLabel}
-                            onChange={e => setCardVariant(item.id, e.target.value)}
-                            className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
-                          >
-                            {parsedVariants.map((v, idx) => (
-                              <option key={idx} value={v.label} disabled={v.is_available === false}>
-                                {v.label} {v.is_available === false ? "(Out of Stock)" : ""}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="flex-1 text-[11px] text-slate-400 font-medium italic">
-                            Standard Item
-                          </div>
-                        )}
+                      {/* Open Tree Branches: All Variants List */}
+                      {parsedVariants.length > 0 ? (
+                        <div className="ml-2.5 pl-3 border-l-2 border-violet-300/80 space-y-1.5 pt-0.5">
+                          {parsedVariants.map((v, idx) => {
+                            const avail = v.is_available !== false;
+                            return (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl bg-slate-50/90 hover:bg-violet-50/70 border border-slate-200/70 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-violet-500 font-bold text-xs select-none">└─</span>
+                                  <div className="min-w-0">
+                                    <span className={`text-xs font-bold ${avail ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
+                                      {v.label}
+                                    </span>
+                                    {!avail && (
+                                      <span className="ml-2 text-[9px] font-bold text-rose-500 uppercase bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">Out of Stock</span>
+                                    )}
+                                  </div>
+                                </div>
 
-                        <button
-                          type="button"
-                          onClick={() => addItemToCart(item, selectedVarLabel)}
-                          className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
-                        >
-                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                          <span>Add</span>
-                        </button>
-                      </div>
+                                <button
+                                  type="button"
+                                  disabled={!avail}
+                                  onClick={() => addItemToCart(item, v.label)}
+                                  className="px-2.5 py-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                >
+                                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                  <span>Add</span>
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        /* Standard Item Node */
+                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                          <span className="text-xs text-slate-500 font-medium italic">Standard Item</span>
+                          <button
+                            type="button"
+                            onClick={() => addItemToCart(item, "")}
+                            className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Add</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+              /* TREE DIAGRAM GRID VIEW */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {paginatedItems.map(item => {
-                  const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
-                  const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
+                  const rawVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
+                  const parsedVariants = filterVariantsForSearch(item, rawVariants, searchQuery);
 
                   return (
                     <div
                       key={item.id}
-                      className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-2xs hover:shadow-sm hover:border-violet-300 transition-all flex flex-col justify-between space-y-3"
+                      className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs hover:border-violet-400/80 transition-all flex flex-col justify-between space-y-3 min-w-0"
                     >
-                      {/* Row 1: Item Name */}
-                      <div>
-                        <div className="font-bold text-slate-900 text-xs sm:text-sm break-words">{item.item_name}</div>
+                      {/* Main Item Root Node */}
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="w-4 h-4 text-violet-600 shrink-0" />
+                          <span className="font-bold text-slate-900 text-xs sm:text-sm break-words">
+                            {item.item_name}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Row 2: Variant Selector Dropdown */}
+                      {/* Open Tree Branches: All Variants List */}
                       {parsedVariants.length > 0 ? (
-                        <div className="space-y-1">
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Select Variety / Size</label>
-                          <select
-                            value={selectedVarLabel}
-                            onChange={e => setCardVariant(item.id, e.target.value)}
-                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-violet-500 cursor-pointer text-slate-800 truncate"
-                          >
-                            {parsedVariants.map((v, idx) => (
-                              <option key={idx} value={v.label} disabled={v.is_available === false}>
-                                {v.label} {v.is_available === false ? "(Out of Stock)" : ""}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="ml-2.5 pl-3 border-l-2 border-violet-300/80 space-y-1.5 pt-0.5 flex-1">
+                          {parsedVariants.map((v, idx) => {
+                            const avail = v.is_available !== false;
+                            return (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl bg-slate-50/90 hover:bg-violet-50/70 border border-slate-200/70 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-violet-500 font-bold text-xs select-none">└─</span>
+                                  <div className="min-w-0">
+                                    <span className={`text-xs font-bold ${avail ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
+                                      {v.label}
+                                    </span>
+                                    {!avail && (
+                                      <span className="ml-2 text-[9px] font-bold text-rose-500 uppercase bg-rose-50 px-1 py-0.2 rounded border border-rose-200">Out of Stock</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  disabled={!avail}
+                                  onClick={() => addItemToCart(item, v.label)}
+                                  className="px-2.5 py-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                >
+                                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                  <span>Add</span>
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
-                        <div className="text-[11px] text-slate-400 font-medium italic">
-                          Standard Variety
+                        /* Standard Item Node */
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                          <span className="text-xs text-slate-500 font-medium italic">Standard Item</span>
+                          <button
+                            type="button"
+                            onClick={() => addItemToCart(item, "")}
+                            className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-98 shrink-0"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Add</span>
+                          </button>
                         </div>
                       )}
-
-                      {/* Row 3: Add Button */}
-                      <button
-                        type="button"
-                        onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="w-full py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-98"
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Add</span>
-                      </button>
                     </div>
                   );
                 })}
@@ -725,8 +820,8 @@ export default function QuickStoreRequestPage() {
       </div>
 
       {/* Floating Mobile Bottom Action Bar */}
-      {cartItems.length > 0 && (
-        <div className="lg:hidden fixed bottom-4 left-3 right-3 z-40 bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-4 duration-300">
+      {!isKeyboardOpen && cartItems.length > 0 && (
+        <div className="lg:hidden fixed bottom-20 left-3 right-3 z-[1001] bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-4 duration-300">
           <div className="flex items-center gap-2.5 min-w-0 pl-1">
             <div className="w-9 h-9 rounded-xl bg-violet-500 text-slate-950 font-black text-xs flex items-center justify-center font-mono shrink-0 shadow-xs">
               {cartItems.length}
@@ -801,7 +896,9 @@ export default function QuickStoreRequestPage() {
                   <div key={idx} className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 space-y-2 relative">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 pr-6">
-                        <div className="font-bold text-slate-800 text-xs truncate">{ci.item_name}</div>
+                        <div className="font-bold text-slate-800 text-xs truncate">
+                          {getFullVariantProductName(ci.item_name, ci.selected_variant)}
+                        </div>
                         {ci.selected_variant && (
                           <span className="text-[9px] font-bold bg-violet-100 text-violet-800 px-1.5 py-0.2 rounded font-mono">
                             {ci.selected_variant}
@@ -826,11 +923,14 @@ export default function QuickStoreRequestPage() {
                           onChange={e => updateCartItemVariant(idx, e.target.value)}
                           className="bg-white px-2 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:border-violet-500 w-full truncate text-slate-700"
                         >
-                          {parsedVariants.map((v, vIdx) => (
-                            <option key={vIdx} value={v.label} disabled={v.is_available === false}>
-                              {v.label} {v.is_available === false ? "(Out of Stock)" : ""}
-                            </option>
-                          ))}
+                          {parsedVariants.map((v, vIdx) => {
+                            const fullProdName = getFullVariantProductName(storeItem?.item_name || ci.item_name, v.label);
+                            return (
+                              <option key={vIdx} value={v.label} disabled={v.is_available === false}>
+                                {fullProdName} {v.is_available === false ? "(Out of Stock)" : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     )}

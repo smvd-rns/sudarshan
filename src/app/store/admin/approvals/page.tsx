@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { 
   Loader2, CheckCircle, XCircle, Clock, Plus, Search, Building, 
   Calendar, ArrowUpDown, RotateCcw, Edit3, User, UserPlus, X, Check, ArrowRight,
   ShoppingBag, IndianRupee, Filter, History, Shield, FileText, Trash2, AlertTriangle, RefreshCw,
-  CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Copy, Download
+  CheckSquare, Square, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Copy, Download, Package
 } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
-import { parseItemVariants, matchStoreItem, ItemVariant } from "@/lib/store-variant-utils";
+import { parseItemVariants, matchStoreItem, filterVariantsForSearch, ItemVariant } from "@/lib/store-variant-utils";
 
 interface StoreItem {
   id: string;
@@ -1553,35 +1554,21 @@ export default function StoreApprovals() {
 
           {activeTab === "pending" && (
             <>
-              <button
-                onClick={() => {
-                  setAddUserSelectedUserId("");
-                  setUserSelectedItems([]);
-                  setUserItemSearchQuery("");
-                  setAddUserRequestDate(new Date().toISOString().split('T')[0]);
-                  setIsAddUserModalOpen(true);
-                }}
+              <Link
+                href="/store/admin/approvals/user-request"
                 className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                 <span>Add User Request</span>
-              </button>
+              </Link>
 
-              <button
-                onClick={() => {
-                  setGuestName("");
-                  setGuestTemple("");
-                  setGuestMobile("");
-                  setGuestSelectedItems([]);
-                  setGuestItemSearchQuery("");
-                  setGuestRequestDate(new Date().toISOString().split('T')[0]);
-                  setIsGuestModalOpen(true);
-                }}
+              <Link
+                href="/store/admin/approvals/guest-request"
                 className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Add Guest Request</span>
-              </button>
+              </Link>
             </>
           )}
         </div>
@@ -2677,97 +2664,53 @@ export default function StoreApprovals() {
                         </div>
                       ) : (
                         filteredCatalogItems(userItemSearchQuery).map(item => {
-                          const itemVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+                          const rawVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+                          const itemVariants = filterVariantsForSearch(item, rawVariants, userItemSearchQuery);
 
                           if (itemVariants.length > 0) {
-                            const selectedVarLabel = modalUserVariantMap[item.id] || itemVariants[0].label;
-                            const matchedVar = itemVariants.find(v => v.label === selectedVarLabel);
-                            const variantKey = `${item.id}_${selectedVarLabel}`;
-                            const isSelected = userSelectedItems.some(i => i.cart_key === variantKey);
-                            const isExpanded = expandedUserItemIds.includes(item.id) || Boolean(userItemSearchQuery.trim());
                             return (
-                              <div key={item.id} className="border border-slate-200/90 rounded-xl bg-white overflow-hidden shadow-2xs space-y-0">
-                                {/* Main Item Card: Row 1 Name & Price, Row 2 Variant Selector & Select Button */}
-                                <div className="p-2.5 bg-slate-50/90 hover:bg-slate-100 transition-colors space-y-2 border-b border-slate-100">
-                                  <div
-                                    onClick={() => toggleUserItemExpand(item.id)}
-                                    className="flex items-center justify-between gap-2 text-xs select-none cursor-pointer"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                      <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                                      <div className="min-w-0 flex-1">
-                                        <div className="font-bold text-slate-900 text-xs break-words">
-                                          {item.item_name}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="text-[10px] text-slate-500 font-mono shrink-0">From ₹{item.cost || 0}</div>
+                              <div key={item.id} className="border border-slate-200/90 rounded-2xl bg-white p-3 space-y-2.5 shadow-2xs">
+                                {/* Main Item Root Node */}
+                                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Package className="w-4 h-4 text-devo-600 shrink-0" />
+                                    <span className="font-bold text-slate-900 text-xs break-words">{item.item_name}</span>
                                   </div>
-
-                                  {/* Row 2: Variant Selector Dropdown & Direct Add/Select */}
-                                  <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
-                                    <select
-                                      value={selectedVarLabel}
-                                      onChange={e => setModalUserVariantMap(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                      className="flex-1 min-w-0 px-2 py-1.5 bg-white border border-devo-300 rounded-lg text-xs font-bold text-devo-800 outline-none cursor-pointer focus:border-devo-500 shadow-2xs truncate"
-                                    >
-                                      {itemVariants.map(v => (
-                                        <option key={v.label} value={v.label}>
-                                          {v.label} (₹{v.cost})
-                                        </option>
-                                      ))}
-                                    </select>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleUserItemVariantSelection(item, selectedVarLabel, matchedVar?.cost)}
-                                      className="px-3 py-1.5 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
-                                    >
-                                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                                      <span>{isSelected ? "Added ✓" : "Add"}</span>
-                                    </button>
-                                  </div>
+                                  <span className="text-[10px] font-bold text-slate-500 font-mono shrink-0">From ₹{item.cost || 0}</span>
                                 </div>
 
-                                {/* Expanded Dropdown Panel listing all variants */}
-                                {isExpanded && (
-                                  <div className="p-2 bg-slate-50/40 space-y-1">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase px-1 pb-0.5">Select Variant(s):</div>
-                                    {itemVariants.map(v => {
-                                      const variantKey = `${item.id}_${v.label}`;
-                                      const isSelected = userSelectedItems.some(i => i.cart_key === variantKey);
-                                      return (
-                                        <div
-                                          key={v.label}
+                                {/* Open Tree Branches: All Variants */}
+                                <div className="ml-2.5 pl-3 border-l-2 border-devo-300/80 space-y-1.5 pt-0.5">
+                                  {itemVariants.map(v => {
+                                    const variantKey = `${item.id}_${v.label}`;
+                                    const isSelected = userSelectedItems.some(i => i.cart_key === variantKey);
+                                    return (
+                                      <div
+                                        key={v.label}
+                                        className={`flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl transition-all ${
+                                          isSelected ? "bg-devo-50 border border-devo-200 shadow-2xs" : "bg-slate-50/90 hover:bg-slate-100 border border-slate-200/70"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="text-devo-500 font-bold text-xs select-none">└─</span>
+                                          <span className="text-xs font-bold text-slate-800 break-words">{v.label}</span>
+                                          <span className="font-mono text-[11px] text-devo-800 font-bold">₹{v.cost}</span>
+                                        </div>
+
+                                        <button
+                                          type="button"
                                           onClick={() => toggleUserItemVariantSelection(item, v.label, v.cost)}
-                                          className={`p-2 rounded-lg cursor-pointer transition-all flex items-center justify-between gap-2 text-xs select-none ${
-                                            isSelected ? "bg-devo-50 border border-devo-200 shadow-2xs font-semibold" : "bg-white hover:bg-slate-100 border border-slate-100"
+                                          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95 shrink-0 ${
+                                            isSelected ? "bg-devo-600 text-white shadow-2xs" : "bg-white border border-slate-200 text-slate-700 hover:bg-devo-50 hover:text-devo-700"
                                           }`}
                                         >
-                                          <div className="flex items-center gap-2 min-w-0 pl-1">
-                                            <div className="shrink-0 text-devo-600">
-                                              {isSelected ? (
-                                                <CheckSquare className="w-3.5 h-3.5 text-devo-600" />
-                                              ) : (
-                                                <Square className="w-3.5 h-3.5 text-slate-300" />
-                                              )}
-                                            </div>
-                                            <span className="text-slate-800 font-medium break-words">{v.label}</span>
-                                          </div>
-
-                                          <div className="flex items-center gap-2 shrink-0">
-                                            <span className="font-mono text-[11px] text-slate-600 font-bold">₹{v.cost}</span>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                              isSelected ? "bg-devo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-devo-100 hover:text-devo-800"
-                                            }`}>
-                                              {isSelected ? "Selected ✓" : "+ Select"}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                          <span>{isSelected ? "Added ✓" : "Add"}</span>
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             );
                           }
@@ -2777,15 +2720,16 @@ export default function StoreApprovals() {
                           return (
                             <div
                               key={item.id}
-                              className={`p-2.5 rounded-xl border transition-all space-y-2 select-none ${
+                              className={`p-3 rounded-2xl border transition-all space-y-2 select-none ${
                                 isSelected ? "bg-devo-50 border-devo-200/90 shadow-2xs" : "bg-white hover:bg-slate-50 border-slate-200/80"
                               }`}
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <div className="font-bold text-slate-900 text-xs break-words">
-                                  {item.item_name}
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Package className="w-4 h-4 text-devo-600 shrink-0" />
+                                  <span className="font-bold text-slate-900 text-xs break-words">{item.item_name}</span>
                                 </div>
-                                <div className="text-[10px] text-slate-500 font-mono">₹{item.cost || 0}</div>
+                                <span className="text-xs font-mono font-bold text-slate-800">₹{item.cost || 0}</span>
                               </div>
 
                               <div className="flex items-center justify-between pt-1 border-t border-slate-100">
@@ -2793,11 +2737,12 @@ export default function StoreApprovals() {
                                 <button
                                   type="button"
                                   onClick={() => toggleUserItemVariantSelection(item)}
-                                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                                    isSelected ? "bg-devo-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-devo-100 hover:text-devo-800"
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95 shrink-0 ${
+                                    isSelected ? "bg-devo-600 text-white shadow-2xs" : "bg-devo-600 hover:bg-devo-700 text-white"
                                   }`}
                                 >
-                                  {isSelected ? "Selected ✓" : "+ Select"}
+                                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                  <span>{isSelected ? "Added ✓" : "Add"}</span>
                                 </button>
                               </div>
                             </div>
@@ -3082,97 +3027,53 @@ export default function StoreApprovals() {
                         </div>
                       ) : (
                         filteredCatalogItems(guestItemSearchQuery).map(item => {
-                          const itemVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+                          const rawVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+                          const itemVariants = filterVariantsForSearch(item, rawVariants, guestItemSearchQuery);
 
                           if (itemVariants.length > 0) {
-                            const selectedVarLabel = modalGuestVariantMap[item.id] || itemVariants[0].label;
-                            const matchedVar = itemVariants.find(v => v.label === selectedVarLabel);
-                            const variantKey = `${item.id}_${selectedVarLabel}`;
-                            const isSelected = guestSelectedItems.some(i => i.cart_key === variantKey);
-                            const isExpanded = expandedGuestItemIds.includes(item.id) || Boolean(guestItemSearchQuery.trim());
                             return (
-                              <div key={item.id} className="border border-slate-200/90 rounded-xl bg-white overflow-hidden shadow-2xs space-y-0">
-                                {/* Main Item Card: Row 1 Name & Price, Row 2 Variant Selector & Select Button */}
-                                <div className="p-2.5 bg-slate-50/90 hover:bg-slate-100 transition-colors space-y-2 border-b border-slate-100">
-                                  <div
-                                    onClick={() => toggleGuestItemExpand(item.id)}
-                                    className="flex items-center justify-between gap-2 text-xs select-none cursor-pointer"
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                      <ChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                                      <div className="min-w-0 flex-1">
-                                        <div className="font-bold text-slate-900 text-xs break-words">
-                                          {item.item_name}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="text-[10px] text-slate-500 font-mono shrink-0">From ₹{item.cost || 0}</div>
+                              <div key={item.id} className="border border-slate-200/90 rounded-2xl bg-white p-3 space-y-2.5 shadow-2xs">
+                                {/* Main Item Root Node */}
+                                <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Package className="w-4 h-4 text-purple-600 shrink-0" />
+                                    <span className="font-bold text-slate-900 text-xs break-words">{item.item_name}</span>
                                   </div>
-
-                                  {/* Row 2: Variant Selector Dropdown & Direct Add/Select */}
-                                  <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
-                                    <select
-                                      value={selectedVarLabel}
-                                      onChange={e => setModalGuestVariantMap(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                      className="flex-1 min-w-0 px-2 py-1.5 bg-white border border-purple-300 rounded-lg text-xs font-bold text-purple-800 outline-none cursor-pointer focus:border-purple-500 shadow-2xs truncate"
-                                    >
-                                      {itemVariants.map(v => (
-                                        <option key={v.label} value={v.label}>
-                                          {v.label} (₹{v.cost})
-                                        </option>
-                                      ))}
-                                    </select>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleGuestItemVariantSelection(item, selectedVarLabel, matchedVar?.cost)}
-                                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
-                                    >
-                                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                                      <span>{isSelected ? "Added ✓" : "Add"}</span>
-                                    </button>
-                                  </div>
+                                  <span className="text-[10px] font-bold text-slate-500 font-mono shrink-0">From ₹{item.cost || 0}</span>
                                 </div>
 
-                                {/* Expanded Dropdown Panel listing all variants */}
-                                {isExpanded && (
-                                  <div className="p-2 bg-slate-50/40 space-y-1">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase px-1 pb-0.5">Select Variant(s):</div>
-                                    {itemVariants.map(v => {
-                                      const variantKey = `${item.id}_${v.label}`;
-                                      const isSelected = guestSelectedItems.some(i => i.cart_key === variantKey);
-                                      return (
-                                        <div
-                                          key={v.label}
+                                {/* Open Tree Branches: All Variants */}
+                                <div className="ml-2.5 pl-3 border-l-2 border-purple-300/80 space-y-1.5 pt-0.5">
+                                  {itemVariants.map(v => {
+                                    const variantKey = `${item.id}_${v.label}`;
+                                    const isSelected = guestSelectedItems.some(i => i.cart_key === variantKey);
+                                    return (
+                                      <div
+                                        key={v.label}
+                                        className={`flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl transition-all ${
+                                          isSelected ? "bg-purple-50 border border-purple-200 shadow-2xs" : "bg-slate-50/90 hover:bg-slate-100 border border-slate-200/70"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="text-purple-500 font-bold text-xs select-none">└─</span>
+                                          <span className="text-xs font-bold text-slate-800 break-words">{v.label}</span>
+                                          <span className="font-mono text-[11px] text-purple-800 font-bold">₹{v.cost}</span>
+                                        </div>
+
+                                        <button
+                                          type="button"
                                           onClick={() => toggleGuestItemVariantSelection(item, v.label, v.cost)}
-                                          className={`p-2 rounded-lg cursor-pointer transition-all flex items-center justify-between gap-2 text-xs select-none ${
-                                            isSelected ? "bg-purple-50 border border-purple-200 shadow-2xs font-semibold" : "bg-white hover:bg-slate-100 border border-slate-100"
+                                          className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95 shrink-0 ${
+                                            isSelected ? "bg-purple-600 text-white shadow-2xs" : "bg-white border border-slate-200 text-slate-700 hover:bg-purple-50 hover:text-purple-700"
                                           }`}
                                         >
-                                          <div className="flex items-center gap-2 min-w-0 pl-1">
-                                            <div className="shrink-0 text-purple-600">
-                                              {isSelected ? (
-                                                <CheckSquare className="w-3.5 h-3.5 text-purple-600" />
-                                              ) : (
-                                                <Square className="w-3.5 h-3.5 text-slate-300" />
-                                              )}
-                                            </div>
-                                            <span className="text-slate-800 font-medium break-words">{v.label}</span>
-                                          </div>
-
-                                          <div className="flex items-center gap-2 shrink-0">
-                                            <span className="font-mono text-[11px] text-slate-600 font-bold">₹{v.cost}</span>
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                              isSelected ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-purple-100 hover:text-purple-800"
-                                            }`}>
-                                              {isSelected ? "Selected ✓" : "+ Select"}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                          <span>{isSelected ? "Added ✓" : "Add"}</span>
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             );
                           }
@@ -3182,15 +3083,16 @@ export default function StoreApprovals() {
                           return (
                             <div
                               key={item.id}
-                              className={`p-2.5 rounded-xl border transition-all space-y-2 select-none ${
+                              className={`p-3 rounded-2xl border transition-all space-y-2 select-none ${
                                 isSelected ? "bg-purple-50 border-purple-200/90 shadow-2xs" : "bg-white hover:bg-slate-50 border-slate-200/80"
                               }`}
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <div className="font-bold text-slate-900 text-xs break-words">
-                                  {item.item_name}
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Package className="w-4 h-4 text-purple-600 shrink-0" />
+                                  <span className="font-bold text-slate-900 text-xs break-words">{item.item_name}</span>
                                 </div>
-                                <div className="text-[10px] text-slate-500 font-mono">₹{item.cost || 0}</div>
+                                <span className="text-xs font-mono font-bold text-slate-800">₹{item.cost || 0}</span>
                               </div>
 
                               <div className="flex items-center justify-between pt-1 border-t border-slate-100">
@@ -3198,11 +3100,12 @@ export default function StoreApprovals() {
                                 <button
                                   type="button"
                                   onClick={() => toggleGuestItemVariantSelection(item)}
-                                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                                    isSelected ? "bg-purple-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-purple-100 hover:text-purple-800"
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all active:scale-95 shrink-0 ${
+                                    isSelected ? "bg-purple-600 text-white shadow-2xs" : "bg-purple-600 hover:bg-purple-700 text-white"
                                   }`}
                                 >
-                                  {isSelected ? "Selected ✓" : "+ Add"}
+                                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                  <span>{isSelected ? "Added ✓" : "Add"}</span>
                                 </button>
                               </div>
                             </div>

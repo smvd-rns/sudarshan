@@ -28,7 +28,7 @@ import {
   LayoutGrid
 } from "lucide-react";
 import { useStoreAuth } from "@/components/StoreGuard";
-import { parseItemVariants, getVariantCost, matchStoreItem, ItemVariant } from "@/lib/store-variant-utils";
+import { parseItemVariants, getVariantCost, matchStoreItem, getFullVariantProductName, filterVariantsForSearch, ItemVariant } from "@/lib/store-variant-utils";
 import { PaginationControls } from "@/components/PaginationControls";
 
 interface StoreItem {
@@ -68,6 +68,57 @@ export default function StoreRequest() {
   // Multi-item cart list state
   const [cartItems, setCartItems] = useState<SelectedRequestItem[]>([]);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      ) {
+        setIsKeyboardOpen(true);
+      }
+    };
+
+    const handleFocusOut = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      ) {
+        setIsKeyboardOpen(false);
+      }
+    };
+
+    window.addEventListener("focusin", handleFocusIn);
+    window.addEventListener("focusout", handleFocusOut);
+
+    const vv = window.visualViewport;
+    const handleVvResize = () => {
+      if (vv) {
+        setIsKeyboardOpen(vv.height < window.innerHeight * 0.8);
+      }
+    };
+
+    if (vv) {
+      vv.addEventListener("resize", handleVvResize);
+    }
+
+    return () => {
+      window.removeEventListener("focusin", handleFocusIn);
+      window.removeEventListener("focusout", handleFocusOut);
+      if (vv) {
+        vv.removeEventListener("resize", handleVvResize);
+      }
+    };
+  }, []);
 
   // Beneficiary selection state (for Store Admin / Manager)
   const [requestForMode, setRequestForMode] = useState<"self" | "registered" | "guest">("self");
@@ -718,74 +769,92 @@ export default function StoreRequest() {
 
           {/* Catalog Items: List View (Default) vs Grid View */}
           {viewMode === "list" ? (
-            /* COMPACT LIST VIEW - 2 ROW LAYOUT FOR ALL SCREENS */
-            <div className="space-y-2">
+            /* TREE DIAGRAM LIST VIEW */
+            <div className="space-y-3">
               {paginatedItems.map(item => {
-                const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
-                const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
-                const currentUnitPrice = getVariantCost(selectedVarLabel, item.variants, item.cost);
+                const rawVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
+                const parsedVariants = filterVariantsForSearch(item, rawVariants, searchQuery);
                 const showPrices = !!storeUser?.is_super_or_store_admin;
 
                 return (
                   <div
                     key={item.id}
-                    className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:p-3 shadow-2xs hover:border-amber-400/80 transition-all group min-w-0 space-y-2"
+                    className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs hover:border-amber-400/80 transition-all space-y-2.5 min-w-0"
                   >
-                    {/* Row 1: Item Name & Metadata */}
-                    <div className="flex items-center justify-between gap-2 min-w-0">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-amber-700 transition-colors break-words">
-                            {item.item_name}
+                    {/* Main Item Root Node */}
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Package className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm break-words">
+                          {item.item_name}
+                        </span>
+                        {showPrices && item.category && (
+                          <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 uppercase tracking-wider ${
+                            item.category === 'Internal' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {item.category}
                           </span>
-                          {showPrices && item.category && (
-                            <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 uppercase tracking-wider ${
-                              item.category === 'Internal' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              {item.category}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
-                      {showPrices && (
+                      {showPrices && parsedVariants.length === 0 && (
                         <span className="text-xs sm:text-sm font-black text-slate-900 font-mono shrink-0">
-                          ₹{currentUnitPrice}
+                          ₹{item.cost || 0}
                         </span>
                       )}
                     </div>
 
-                    {/* Row 2: Variant Selector Dropdown & Add Button */}
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                      {parsedVariants.length > 0 ? (
-                        <select
-                          value={selectedVarLabel}
-                          onChange={e => setCardVariant(item.id, e.target.value)}
-                          className="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-amber-500 cursor-pointer text-slate-800 truncate"
-                        >
-                          {parsedVariants.map((v, idx) => {
-                            const avail = v.is_available !== false;
-                            return (
-                              <option key={idx} value={v.label} disabled={!avail}>
-                                {v.label} {showPrices ? `— ₹${v.cost}` : ''} {avail ? '' : '(Out of Stock)'}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      ) : (
-                        <div className="flex-1 text-[11px] text-slate-400 font-medium italic">
-                          Standard Item
-                        </div>
-                      )}
+                    {/* Open Tree Branches: All Variants List */}
+                    {parsedVariants.length > 0 ? (
+                      <div className="ml-2.5 pl-3 border-l-2 border-amber-300/80 space-y-1.5 pt-0.5">
+                        {parsedVariants.map((v, idx) => {
+                          const avail = v.is_available !== false;
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl bg-slate-50/90 hover:bg-amber-50/70 border border-slate-200/70 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-amber-500 font-bold text-xs select-none">└─</span>
+                                <div className="min-w-0">
+                                  <span className={`text-xs font-bold ${avail ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
+                                    {v.label}
+                                  </span>
+                                  {showPrices && (
+                                    <span className="ml-2 text-[11px] font-mono text-amber-800 font-bold">₹{v.cost}</span>
+                                  )}
+                                  {!avail && (
+                                    <span className="ml-2 text-[9px] font-bold text-rose-500 uppercase bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">Out of Stock</span>
+                                  )}
+                                </div>
+                              </div>
 
-                      <button
-                        type="button"
-                        onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Add</span>
-                      </button>
-                    </div>
+                              <button
+                                type="button"
+                                disabled={!avail}
+                                onClick={() => addItemToCart(item, v.label)}
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                              >
+                                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                <span>Add</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* Standard Item Node */
+                      <div className="flex items-center justify-between gap-2 pt-0.5">
+                        <span className="text-xs text-slate-500 font-medium italic">Standard Item</span>
+                        <button
+                          type="button"
+                          onClick={() => addItemToCart(item, "")}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -797,82 +866,91 @@ export default function StoreRequest() {
               )}
             </div>
           ) : (
-            /* GRID VIEW */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+            /* TREE DIAGRAM GRID VIEW */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {paginatedItems.map(item => {
-                const parsedVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
-                const selectedVarLabel = cardVariantMap[item.id] || (parsedVariants.length > 0 ? (parsedVariants.find(v => v.is_available !== false)?.label || parsedVariants[0].label) : "");
-                const currentUnitPrice = getVariantCost(selectedVarLabel, item.variants, item.cost);
+                const rawVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
+                const parsedVariants = filterVariantsForSearch(item, rawVariants, searchQuery);
                 const showPrices = !!storeUser?.is_super_or_store_admin;
 
                 return (
                   <div
                     key={item.id}
-                    className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-2xs flex flex-col justify-between space-y-3 hover:border-amber-400/80 transition-all group min-w-0"
+                    className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs hover:border-amber-400/80 transition-all flex flex-col justify-between space-y-3 min-w-0"
                   >
-                    {/* Row 1: Item Name & Header */}
-                    <div className="space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-bold sm:font-black text-slate-900 text-xs sm:text-sm group-hover:text-amber-700 transition-colors break-words">
+                    {/* Main Item Root Node */}
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Package className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm break-words">
                           {item.item_name}
-                        </div>
-                        {showPrices && (
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider ${
-                            item.category === 'Internal' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {item.category}
-                          </span>
-                        )}
+                        </span>
                       </div>
+                      {showPrices && item.category && (
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider ${
+                          item.category === 'Internal' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {item.category}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Row 2: Variety Dropdown Selector */}
+                    {/* Open Tree Branches: All Variants List */}
                     {parsedVariants.length > 0 ? (
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase">Select Variety / Size:</label>
-                        <select
-                          value={selectedVarLabel}
-                          onChange={e => setCardVariant(item.id, e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 cursor-pointer text-slate-800"
-                        >
-                          {parsedVariants.map((v, idx) => {
-                            const avail = v.is_available !== false;
-                            return (
-                              <option key={idx} value={v.label} disabled={!avail}>
-                                {v.label} {showPrices ? `— ₹${v.cost}` : ''} {avail ? '' : '(Out of Stock)'}
-                              </option>
-                            );
-                          })}
-                        </select>
+                      <div className="ml-2.5 pl-3 border-l-2 border-amber-300/80 space-y-1.5 pt-0.5 flex-1">
+                        {parsedVariants.map((v, idx) => {
+                          const avail = v.is_available !== false;
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl bg-slate-50/90 hover:bg-amber-50/70 border border-slate-200/70 transition-colors"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-amber-500 font-bold text-xs select-none">└─</span>
+                                <div className="min-w-0">
+                                  <span className={`text-xs font-bold ${avail ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
+                                    {v.label}
+                                  </span>
+                                  {showPrices && (
+                                    <span className="ml-2 text-[11px] font-mono text-amber-800 font-bold">₹{v.cost}</span>
+                                  )}
+                                  {!avail && (
+                                    <span className="ml-2 text-[9px] font-bold text-rose-500 uppercase bg-rose-50 px-1 py-0.2 rounded border border-rose-200">Out of Stock</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={!avail}
+                                onClick={() => addItemToCart(item, v.label)}
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                              >
+                                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                                <span>Add</span>
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
-                      <div className="text-[11px] text-slate-400 font-medium italic">
-                        Standard Variety
+                      /* Standard Item Node */
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                        {showPrices ? (
+                          <span className="text-sm font-black text-slate-900 font-mono">₹{item.cost || 0}</span>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-medium italic">Standard Item</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => addItemToCart(item, "")}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Add</span>
+                        </button>
                       </div>
                     )}
-
-                    {/* Row 3: Price & Add Button */}
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                      {showPrices ? (
-                        <div>
-                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Price</span>
-                          <span className="text-sm font-black text-slate-900 font-mono">₹{currentUnitPrice}</span>
-                        </div>
-                      ) : (
-                        <div className="text-[11px] text-slate-500 font-bold truncate">
-                          {selectedVarLabel || "Standard Item"}
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => addItemToCart(item, selectedVarLabel)}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Add</span>
-                      </button>
-                    </div>
                   </div>
                 );
               })}
@@ -943,7 +1021,9 @@ export default function StoreRequest() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 pr-6">
-                          <div className="font-bold text-slate-800 text-xs truncate">{ci.item_name}</div>
+                          <div className="font-bold text-slate-800 text-xs truncate">
+                            {getFullVariantProductName(ci.item_name, ci.selected_variant)}
+                          </div>
                           {showPrices ? (
                             <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-mono">
                               ₹{ci.unit_cost} / unit
@@ -977,11 +1057,14 @@ export default function StoreRequest() {
                             onChange={e => updateCartItemVariant(idx, e.target.value)}
                             className="bg-white px-2 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:border-amber-500 w-full truncate text-slate-700"
                           >
-                            {parsedVariants.map((v, vIdx) => (
-                              <option key={vIdx} value={v.label} disabled={v.is_available === false}>
-                                {v.label} {showPrices ? `(₹${v.cost})` : ''}
-                              </option>
-                            ))}
+                            {parsedVariants.map((v, vIdx) => {
+                              const fullProdName = getFullVariantProductName(storeItem?.item_name || ci.item_name, v.label);
+                              return (
+                                <option key={vIdx} value={v.label} disabled={v.is_available === false}>
+                                  {fullProdName} {showPrices ? `(₹${v.cost})` : ''}
+                                </option>
+                              );
+                            })}
                           </select>
                         </div>
                       )}
@@ -1074,7 +1157,7 @@ export default function StoreRequest() {
       </div>
 
       {/* Floating Mobile Bottom Action Bar (Positioned above fixed mobile tab bar z-[1000]) */}
-      {cartItems.length > 0 && (
+      {!isKeyboardOpen && cartItems.length > 0 && (
         <div className="lg:hidden fixed bottom-20 left-3 right-3 z-[1001] bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-slate-700/60 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-4 duration-300">
           <div className="flex items-center gap-2.5 min-w-0 pl-1">
             <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center font-mono shrink-0 shadow-xs">
@@ -1147,7 +1230,9 @@ export default function StoreRequest() {
                   <div key={idx} className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 space-y-2 relative">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 pr-6">
-                        <div className="font-bold text-slate-800 text-xs truncate">{ci.item_name}</div>
+                        <div className="font-bold text-slate-800 text-xs truncate">
+                          {getFullVariantProductName(ci.item_name, ci.selected_variant)}
+                        </div>
                         {showPrices ? (
                           <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-mono">
                             ₹{ci.unit_cost} / unit
@@ -1178,11 +1263,14 @@ export default function StoreRequest() {
                           onChange={e => updateCartItemVariant(idx, e.target.value)}
                           className="bg-white px-2 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:border-amber-500 w-full truncate text-slate-700"
                         >
-                          {parsedVariants.map((v, vIdx) => (
-                            <option key={vIdx} value={v.label} disabled={v.is_available === false}>
-                              {v.label} {showPrices ? `(₹${v.cost})` : ''}
-                            </option>
-                          ))}
+                          {parsedVariants.map((v, vIdx) => {
+                            const fullProdName = getFullVariantProductName(storeItem?.item_name || ci.item_name, v.label);
+                            return (
+                              <option key={vIdx} value={v.label} disabled={v.is_available === false}>
+                                {fullProdName} {showPrices ? `(₹${v.cost})` : ''}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     )}
