@@ -59,8 +59,11 @@ export async function GET(request: Request) {
       if (!(await checkIsAdmin(user.id))) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      if (mode === 'pending') query = query.eq('status', 'pending').order('created_at', { ascending: true });
-      if (mode === 'approved') query = query.eq('status', 'approved');
+      if (mode === 'pending') {
+        query = query.eq('status', 'pending');
+      } else if (mode === 'approved') {
+        query = query.eq('status', 'approved');
+      }
     }
 
     const { data, error } = await query;
@@ -148,7 +151,7 @@ export async function POST(request: Request) {
 
     const unitCost = storeItem ? getVariantCost(cleanVar, storeItem.variants, Number(storeItem.cost) || 0) : 0;
 
-    const isAutoApprove = Boolean(auto_approve || target_user_id || is_guest) && isAdminUser;
+    const isAutoApprove = Boolean(auto_approve) && isAdminUser;
     const initialStatus = isAutoApprove ? 'approved' : 'pending';
 
     const variantPayload = JSON.stringify({
@@ -191,8 +194,8 @@ export async function POST(request: Request) {
 
     logStoreActivity({
       userId: user.id,
-      userName: (data as any)?.store_users?.full_name || user.email || "User",
-      userEmail: (data as any)?.store_users?.email || user.email || "N/A",
+      userName: (user as any)?.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'User'),
+      userEmail: user.email || 'N/A',
       action: "CREATE_REQUEST",
       details: `Created request for ${(data as any)?.store_users?.full_name || 'user'}: ${quantity}x ${(data as any)?.store_items?.item_name || 'Item'}`,
       metadata: { requestId: data.id, itemId: item_id, quantity }

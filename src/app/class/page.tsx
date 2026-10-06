@@ -19,7 +19,7 @@ export default function Home() {
   const pageSize = 20;
 
   // Profile data & completion form state
-  const { profile, loading: loadingProfile, refreshProfile } = useProfile(session);
+  const { profile, isSuperAdmin, loading: loadingProfile, refreshProfile } = useProfile(session);
   const [regName, setRegName] = useState("");
   const [regMobile, setRegMobile] = useState("");
   const [regTemple, setRegTemple] = useState("");
@@ -131,13 +131,12 @@ export default function Home() {
     return <MantraLoader />;
   }
 
-
-
   return (
     <div>
       <LectureGrid 
         initialLectures={lectures} 
         userRole={profile?.role}
+        isSuperAdmin={isSuperAdmin}
         onUpdate={() => fetchLectures(0, true)}
         accessToken={session?.access_token}
         onLoadMore={handleLoadMore}

@@ -442,7 +442,7 @@ export default function StoreRequest() {
         }
       }
 
-      setSuccessMsg(`Successfully submitted ${cartItems.length} item request(s)!`);
+      setSuccessMsg(`Successfully submitted ${cartItems.length} item request(s) for approval!`);
       setCartItems([]);
       setGuestName("");
       setGuestTemple("");

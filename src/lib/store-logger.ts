@@ -21,7 +21,7 @@ export async function logStoreActivity(params: LogStoreActivityParams) {
     let uName = params.userName || params.user_name || "";
     let uEmail = params.userEmail || params.user_email || "";
 
-    if (uId && (!uName || uName.includes('@') || uName === 'Admin' || uName === 'User/Admin')) {
+    if (uId) {
       const { data: su } = await supabaseIdktAdmin
         .from('store_users')
         .select('full_name, email')
@@ -41,6 +41,26 @@ export async function logStoreActivity(params: LogStoreActivityParams) {
         if (prof && prof.full_name) {
           uName = prof.full_name;
           if (prof.email) uEmail = prof.email;
+        }
+      }
+    } else if (uEmail && (!uName || uName.includes('@') || uName === 'Admin' || uName.length <= 5)) {
+      const { data: su } = await supabaseIdktAdmin
+        .from('store_users')
+        .select('full_name, email')
+        .eq('email', uEmail)
+        .maybeSingle();
+
+      if (su && su.full_name) {
+        uName = su.full_name;
+      } else if (supabaseAdmin) {
+        const { data: prof } = await supabaseAdmin
+          .from('profiles')
+          .select('full_name, email')
+          .eq('email', uEmail)
+          .maybeSingle();
+
+        if (prof && prof.full_name) {
+          uName = prof.full_name;
         }
       }
     }

@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import VideoCard, { Lecture } from "./VideoCard";
-import { Search, X, Loader2, Heart, Link2, Check } from "lucide-react";
+import { Search, X, Loader2, Heart, Link2, Check, Plus } from "lucide-react";
 import OptimizedVideoPlayer from "./OptimizedVideoPlayer";
+import AddBcClassModal from "./AddBcClassModal";
 import { openExternal } from "@/lib/device";
 import { useEffect, useCallback } from "react";
 
 export default function LectureGrid({ 
   initialLectures,
   userRole,
+  isSuperAdmin,
   onUpdate,
   accessToken,
   onLoadMore,
@@ -19,6 +21,7 @@ export default function LectureGrid({
 }: { 
   initialLectures: Lecture[],
   userRole?: number,
+  isSuperAdmin?: boolean,
   onUpdate?: () => void,
   accessToken?: string,
   onLoadMore?: () => void,
@@ -30,6 +33,7 @@ export default function LectureGrid({
   const [activeLecture, setActiveLecture] = useState<Lecture | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const handleCopyLink = async (youtubeId: string) => {
     const videoUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
@@ -97,6 +101,20 @@ export default function LectureGrid({
         <p className="text-base sm:text-lg text-devo-800 font-medium opacity-80 max-w-lg mx-auto">
           Explore our collection of profound discourses. Immerse yourself in the timeless teachings.
         </p>
+
+        {/* SuperAdmin Quick Action Button */}
+        {isSuperAdmin && (
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2.5 px-6 py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-amber-600/20 hover:shadow-amber-600/30 transition-all hover:scale-105 active:scale-95 border border-amber-400/30"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New BC Class Entry</span>
+            </button>
+          </div>
+        )}
+
         <div className="relative max-w-xl mx-auto mt-6">
           <div className="absolute inset-y-0 left-0 pl-4 sm:pl-5 flex items-center pointer-events-none">
             <Search className="h-4 w-4 sm:h-5 sm:w-5 text-devo-500" />
@@ -110,6 +128,18 @@ export default function LectureGrid({
           />
         </div>
       </div>
+
+      {/* Add BC Class Modal (SuperAdmin Only) */}
+      {isSuperAdmin && (
+        <AddBcClassModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          accessToken={accessToken}
+          onSuccess={() => {
+            if (onUpdate) onUpdate();
+          }}
+        />
+      )}
 
       {/* Grid */}
       {initialLectures.length > 0 ? (

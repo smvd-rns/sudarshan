@@ -104,16 +104,20 @@ export async function GET(request: Request) {
         if (!rEmail) rEmail = rName;
       }
 
-      if (!rName || rName.includes('@') || rName === 'Admin' || rName === 'User/Admin') {
-        if (log.user_id && storeUserById.has(log.user_id)) {
-          rName = storeUserById.get(log.user_id);
-        } else if (rEmail && storeUserByEmail.has(rEmail.toLowerCase())) {
-          rName = storeUserByEmail.get(rEmail.toLowerCase());
-        } else if (log.user_id && profileById.has(log.user_id)) {
-          rName = profileById.get(log.user_id);
-        } else if (rEmail && profileByEmail.has(rEmail.toLowerCase())) {
-          rName = profileByEmail.get(rEmail.toLowerCase());
-        }
+      // Prioritize looking up actual DB full_name from store_users / profiles maps
+      let dbFullName = "";
+      if (log.user_id && storeUserById.has(log.user_id)) {
+        dbFullName = storeUserById.get(log.user_id)!;
+      } else if (log.user_id && profileById.has(log.user_id)) {
+        dbFullName = profileById.get(log.user_id)!;
+      } else if (rEmail && storeUserByEmail.has(rEmail.toLowerCase())) {
+        dbFullName = storeUserByEmail.get(rEmail.toLowerCase())!;
+      } else if (rEmail && profileByEmail.has(rEmail.toLowerCase())) {
+        dbFullName = profileByEmail.get(rEmail.toLowerCase())!;
+      }
+
+      if (dbFullName) {
+        rName = dbFullName;
       }
 
       return {

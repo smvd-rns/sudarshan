@@ -153,7 +153,7 @@ export default function StoreApprovals() {
   const [t1UserFilter, setT1UserFilter] = useState("all");
   const [selectedT1RequestIds, setSelectedT1RequestIds] = useState<string[]>([]);
   const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
-  const [t1SortBy, setT1SortBy] = useState<"fifo_asc" | "date_desc" | "name_asc" | "item_asc">("fifo_asc"); // Default 1st come 1st serve
+  const [t1SortBy, setT1SortBy] = useState<"fifo_asc" | "date_desc" | "name_asc" | "item_asc">("date_desc");
   const [t1StartDate, setT1StartDate] = useState("");
   const [t1EndDate, setT1EndDate] = useState("");
   const [t1DatePreset, setT1DatePreset] = useState<"all" | "today" | "this_month" | "last_month" | "this_year" | "custom">("all");
@@ -169,7 +169,7 @@ export default function StoreApprovals() {
   const [t2TempleFilter, setT2TempleFilter] = useState("all");
   const [t2UserFilter, setT2UserFilter] = useState("all");
   const [t2ApprovedByFilter, setT2ApprovedByFilter] = useState("all");
-  const [t2SortBy, setT2SortBy] = useState<"date_desc" | "date_asc" | "amount_desc" | "name_asc">("date_desc");
+  const [t2SortBy, setT2SortBy] = useState<"date_asc" | "date_desc" | "amount_desc" | "name_asc">("date_desc");
   const [t2StartDate, setT2StartDate] = useState("");
   const [t2EndDate, setT2EndDate] = useState("");
   const [t2DatePreset, setT2DatePreset] = useState<"all" | "today" | "this_month" | "last_month" | "this_year" | "custom">("all");
@@ -842,14 +842,14 @@ export default function StoreApprovals() {
     setT1Page(1);
   }, [t1Search, t1TempleFilter, t1UserFilter, t1SortBy, t1StartDate, t1EndDate, t1PageSize]);
 
-  const hasT1ActiveFilters = t1Search.trim() !== "" || t1TempleFilter !== "all" || t1UserFilter !== "all" || t1SortBy !== "fifo_asc" || t1StartDate !== "" || t1EndDate !== "";
+  const hasT1ActiveFilters = t1Search.trim() !== "" || t1TempleFilter !== "all" || t1UserFilter !== "all" || t1SortBy !== "date_desc" || t1StartDate !== "" || t1EndDate !== "";
 
   const clearT1Filters = () => {
     setT1Search("");
     setT1TempleFilter("all");
     setT1UserFilter("all");
     setSelectedT1RequestIds([]);
-    setT1SortBy("fifo_asc");
+    setT1SortBy("date_desc");
     setT1StartDate("");
     setT1EndDate("");
     setT1DatePreset("all");
@@ -1700,8 +1700,8 @@ export default function StoreApprovals() {
                   onChange={e => setT1SortBy(e.target.value as any)}
                   className="w-full pl-8 pr-7 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-devo-500 appearance-none cursor-pointer"
                 >
-                  <option value="fifo_asc">1st Entry 1st View (Oldest First)</option>
                   <option value="date_desc">Recent Submissions (Newest First)</option>
+                  <option value="fifo_asc">1st Entry 1st View (Oldest First)</option>
                   <option value="name_asc">Devotee Name: A to Z</option>
                   <option value="item_asc">Item Name: A to Z</option>
                 </select>
@@ -2204,8 +2204,8 @@ export default function StoreApprovals() {
                   onChange={e => setT2SortBy(e.target.value as any)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-devo-500 cursor-pointer shadow-2xs"
                 >
-                  <option value="date_desc">Date: Newest First</option>
-                  <option value="date_asc">Date: Oldest First</option>
+                  <option value="date_desc">Recent Submissions (Newest First)</option>
+                  <option value="date_asc">1st Entry to Recent Entry (Oldest First)</option>
                   <option value="amount_desc">Amount: High to Low</option>
                   <option value="name_asc">Devotee: A to Z</option>
                 </select>

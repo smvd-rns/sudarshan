@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       user_email: user.email || '',
       action: 'REIMBURSEMENT_ADDED',
       details: `Added reimbursement of ₹${numAmount} for "${item_details}" (User: ${(data as any)?.store_users?.full_name || user_id}).`,
-      metadata: { reimbursement_id: data?.id, target_user_id: user_id, amount: numAmount, item_details }
+      metadata: { reimbursement_id: data?.id, target_user_id: user_id, amount: numAmount, item_details, created_by: user.id }
     });
 
     return NextResponse.json(data);
@@ -157,6 +157,15 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
+    const { data: existingRec } = await supabaseIdktAdmin!
+      .from('store_reimbursements')
+      .select(`
+        id, item_details, amount, user_id,
+        store_users (full_name, email)
+      `)
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await supabaseIdktAdmin!
       .from('store_reimbursements')
       .delete()
@@ -169,8 +178,8 @@ export async function DELETE(request: Request) {
       user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
       user_email: user.email || '',
       action: 'REIMBURSEMENT_DELETED',
-      details: `Deleted reimbursement record ID: ${id}.`,
-      metadata: { reimbursement_id: id }
+      details: `Deleted reimbursement of ₹${(existingRec as any)?.amount || 0} for "${(existingRec as any)?.item_details || id}" (User: ${(existingRec as any)?.store_users?.full_name || 'User'}).`,
+      metadata: { reimbursement_id: id, deleted_by: user.id }
     });
 
     return NextResponse.json({ success: true });
