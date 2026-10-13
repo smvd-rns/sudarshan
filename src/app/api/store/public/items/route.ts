@@ -16,8 +16,25 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch items" }, { status: 500 });
     }
 
-    // Filter out items that are marked out-of-stock / unavailable
-    const availableItems = (data || []).filter((item: any) => item.is_available !== false);
+    // Filter out items that are marked out-of-stock / unavailable or have no available variants
+    const availableItems = (data || [])
+      .filter((item: any) => {
+        if (item.is_available === false) return false;
+        if (Array.isArray(item.variants) && item.variants.length > 0) {
+          const hasAnyAvailable = item.variants.some((v: any) => v.is_available !== false);
+          if (!hasAnyAvailable) return false;
+        }
+        return true;
+      })
+      .map((item: any) => {
+        if (Array.isArray(item.variants) && item.variants.length > 0) {
+          return {
+            ...item,
+            variants: item.variants.filter((v: any) => v.is_available !== false)
+          };
+        }
+        return item;
+      });
 
     return NextResponse.json(availableItems);
   } catch (err: any) {

@@ -501,7 +501,7 @@ export default function StoreApprovals() {
   // Modal 1 Cart Handlers
   const toggleUserItemVariantSelection = (item: StoreItem, variantLabel?: string, variantCost?: number) => {
     const key = `${item.id}_${variantLabel || 'default'}`;
-    const parsed = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+    const parsed = parseItemVariants(item.variants, item.cost || 0);
 
     setUserSelectedItems(prev => {
       const existingIdx = prev.findIndex(i => i.cart_key === key);
@@ -529,7 +529,7 @@ export default function StoreApprovals() {
     setUserSelectedItems(prev => {
       const newItems = [...prev];
       list.forEach(item => {
-        const parsed = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+        const parsed = parseItemVariants(item.variants, item.cost || 0);
         if (parsed.length > 0) {
           parsed.forEach(v => {
             const key = `${item.id}_${v.label}`;
@@ -595,7 +595,7 @@ export default function StoreApprovals() {
   // Modal 2 Cart Handlers (Guest)
   const toggleGuestItemVariantSelection = (item: StoreItem, variantLabel?: string, variantCost?: number) => {
     const key = `${item.id}_${variantLabel || 'default'}`;
-    const parsed = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+    const parsed = parseItemVariants(item.variants, item.cost || 0);
 
     setGuestSelectedItems(prev => {
       const existingIdx = prev.findIndex(i => i.cart_key === key);
@@ -623,7 +623,7 @@ export default function StoreApprovals() {
     setGuestSelectedItems(prev => {
       const newItems = [...prev];
       list.forEach(item => {
-        const parsed = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+        const parsed = parseItemVariants(item.variants, item.cost || 0);
         if (parsed.length > 0) {
           parsed.forEach(v => {
             const key = `${item.id}_${v.label}`;
@@ -1507,25 +1507,25 @@ export default function StoreApprovals() {
   }
 
   return (
-    <div className="w-full pb-16 space-y-6">
+    <div className="w-full max-w-full overflow-x-hidden min-w-0 pb-16 space-y-4 sm:space-y-6">
       {/* ─── Page Header Bar ──────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black font-outfit text-slate-800 flex items-center gap-2.5">
-            <Clock className="w-6 h-6 sm:w-7 sm:h-7 text-amber-600 shrink-0" />
-            <span>Store Approvals & Master History</span>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-2xl font-black font-outfit text-slate-800 flex items-center gap-2 sm:gap-2.5">
+            <Clock className="w-5 h-5 sm:w-7 sm:h-7 text-amber-600 shrink-0" />
+            <span className="truncate">Store Approvals & Master History</span>
           </h1>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
+          <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
             Manage pending store requests, add requests for users or guests, or view master audit logs.
           </p>
         </div>
 
         {/* Header Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto">
           <button
             type="button"
             onClick={handleCopyQuickRequestLink}
-            className="px-3.5 py-2 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
+            className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
             title="Copy Quick Request page link (no login) to share with specific users"
           >
             {copiedQuickLink ? (
@@ -1545,7 +1545,7 @@ export default function StoreApprovals() {
             type="button"
             onClick={handleRefreshData}
             disabled={isRefreshing}
-            className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
+            className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
             title="Refresh Table Data"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -1556,7 +1556,7 @@ export default function StoreApprovals() {
             <>
               <Link
                 href="/store/admin/approvals/user-request"
-                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                 <span>Add User Request</span>
@@ -1564,7 +1564,7 @@ export default function StoreApprovals() {
 
               <Link
                 href="/store/admin/approvals/guest-request"
-                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-2xs text-xs transition-all cursor-pointer shrink-0"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Add Guest Request</span>
@@ -1575,18 +1575,18 @@ export default function StoreApprovals() {
       </div>
 
       {/* ─── Subsection Tabs (Tab 1: Items Request | Tab 2: Master History) ────── */}
-      <div className="flex items-center gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar scroll-smooth">
+      <div className="flex items-center gap-1 sm:gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar scroll-smooth w-full max-w-full">
         <button
           onClick={() => setActiveTab("pending")}
-          className={`px-3.5 sm:px-5 py-2.5 sm:py-3 font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+          className={`px-3 sm:px-5 py-2.5 sm:py-3 font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === "pending"
               ? "border-devo-600 text-devo-700 bg-devo-50/50"
               : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
           }`}
         >
-          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span>Items Request Queue</span>
-          <span className={`ml-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black ${
+          <span className={`ml-0.5 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black shrink-0 ${
             requests.length > 0 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500"
           }`}>
             {requests.length}
@@ -1595,15 +1595,15 @@ export default function StoreApprovals() {
 
         <button
           onClick={() => setActiveTab("history")}
-          className={`px-3.5 sm:px-5 py-2.5 sm:py-3 font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+          className={`px-3 sm:px-5 py-2.5 sm:py-3 font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeTab === "history"
               ? "border-devo-600 text-devo-700 bg-devo-50/50"
               : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
           }`}
         >
-          <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
           <span>Master Audit History</span>
-          <span className="ml-0.5 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-slate-100 text-slate-600">
+          <span className="ml-0.5 px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-slate-100 text-slate-600 shrink-0">
             {masterHistoryList.length}
           </span>
         </button>
@@ -1613,7 +1613,7 @@ export default function StoreApprovals() {
       {/* TAB 1: REQUEST APPROVALS (PENDING LIST - FIFO ORDER)                */}
       {/* =================================================================== */}
       {activeTab === "pending" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 sm:p-5 space-y-3 sm:space-y-4 w-full">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 sm:p-5 space-y-3 sm:space-y-4 w-full min-w-0 max-w-full">
           {/* Section Summary Header */}
           <div className="flex flex-row items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
             <div>
@@ -2077,41 +2077,43 @@ export default function StoreApprovals() {
       {/* TAB 2: MASTER ISSUED & REIMBURSEMENTS HISTORY                      */}
       {/* =================================================================== */}
       {activeTab === "history" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4 w-full">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 sm:p-5 space-y-3 sm:space-y-4 w-full min-w-0 max-w-full">
           {/* Section Summary Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
-              <h2 className="font-bold text-slate-800 text-lg font-outfit flex items-center gap-2">
-                <History className="w-5 h-5 text-devo-600" />
-                Master Audit History Ledger
+              <h2 className="font-bold text-slate-800 text-base sm:text-lg font-outfit flex items-center gap-2">
+                <History className="w-5 h-5 text-devo-600 shrink-0" />
+                <span className="truncate">Master Audit History Ledger</span>
               </h2>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleRefreshData}
-                disabled={isRefreshing}
-                className="px-2.5 py-1.5 bg-white hover:bg-devo-50 border border-devo-200 text-devo-950 font-bold rounded-xl flex items-center gap-1.5 text-xs shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-                title="Refresh Master Audit History"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-devo-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
-              </button>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRefreshData}
+                  disabled={isRefreshing}
+                  className="px-2.5 py-1.5 bg-white hover:bg-devo-50 border border-devo-200 text-devo-950 font-bold rounded-xl flex items-center gap-1.5 text-xs shadow-2xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                  title="Refresh Master Audit History"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-devo-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={exportMasterHistoryCSV}
-                disabled={!filteredT2History.length}
-                className="px-3 py-1.5 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-xl flex items-center gap-1.5 text-xs shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-                title="Export Master Audit History to CSV"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={exportMasterHistoryCSV}
+                  disabled={!filteredT2History.length}
+                  className="px-3 py-1.5 bg-devo-600 hover:bg-devo-700 text-white font-bold rounded-xl flex items-center gap-1.5 text-xs shadow-2xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                  title="Export Master Audit History to CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
 
-              <span className="bg-devo-50 text-devo-950 border border-devo-200/80 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-2xs">
-                <span>Total Calculated Value:</span>
+              <span className="bg-devo-50 text-devo-950 border border-devo-200/80 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center justify-between sm:justify-start gap-2 shadow-2xs w-full sm:w-auto">
+                <span className="text-slate-600 font-semibold">Total Calculated Value:</span>
                 <span className="font-mono font-black text-devo-700 text-sm">
                   ₹{totalT2Amount.toLocaleString()}
                 </span>
@@ -2120,12 +2122,12 @@ export default function StoreApprovals() {
           </div>
 
           {/* Tab 2 Toolbar (Search, Approved By, Type, Access Level, Temple, Date, Sort) */}
-          <div className="flex flex-col gap-2.5 bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200/80">
+          <div className="flex flex-col gap-2.5 bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200/80 min-w-0 max-w-full">
             {/* Row 1: Search Box (2 cols), Approved By, Types, Access, Temples */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
               {/* Search Box */}
-              <div className="relative lg:col-span-2">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div className="relative lg:col-span-2 min-w-0">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search devotee, item, temple..."
@@ -2134,7 +2136,7 @@ export default function StoreApprovals() {
                   className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 outline-none focus:border-devo-500 shadow-2xs"
                 />
                 {t2Search && (
-                  <button onClick={() => setT2Search("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setT2Search("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -2212,15 +2214,15 @@ export default function StoreApprovals() {
               </div>
 
               {/* Date Presets & Pickers (Right) */}
-              <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end w-full md:w-auto">
-                <div className="flex items-center gap-1 flex-wrap overflow-x-auto no-scrollbar py-0.5 max-w-full">
+              <div className="flex flex-wrap items-center gap-2 justify-start md:justify-end w-full md:w-auto min-w-0">
+                <div className="flex items-center gap-1 flex-wrap py-0.5 max-w-full">
                   <span className="font-bold text-slate-500 text-[10px] uppercase shrink-0">Range:</span>
                   {(["all", "today", "this_month", "last_month"] as const).map(preset => (
                     <button
                       key={preset}
                       type="button"
                       onClick={() => applyPreset(preset, setT2DatePreset, setT2StartDate, setT2EndDate)}
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all whitespace-nowrap ${
+                      className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all whitespace-nowrap cursor-pointer ${
                         t2DatePreset === preset ? "bg-devo-600 text-white shadow-2xs" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                       }`}
                     >
@@ -2229,8 +2231,8 @@ export default function StoreApprovals() {
                   ))}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-                  <div className="flex items-center gap-1 flex-1 sm:flex-initial min-w-0">
+                <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-1 min-w-0">
                     <span className="text-[10px] font-semibold text-slate-500 shrink-0">From:</span>
                     <input
                       type="date"
@@ -2242,7 +2244,7 @@ export default function StoreApprovals() {
                       className="w-full px-1.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-medium text-slate-800 outline-none focus:border-devo-500 shadow-2xs min-w-0"
                     />
                   </div>
-                  <div className="flex items-center gap-1 flex-1 sm:flex-initial min-w-0">
+                  <div className="flex items-center gap-1 min-w-0">
                     <span className="text-[10px] font-semibold text-slate-500 shrink-0">To:</span>
                     <input
                       type="date"
@@ -2257,7 +2259,7 @@ export default function StoreApprovals() {
                   {hasT2ActiveFilters && (
                     <button
                       onClick={clearT2Filters}
-                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] rounded-md flex items-center justify-center gap-1 border border-amber-200 transition-colors shrink-0"
+                      className="col-span-2 sm:col-span-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] rounded-md flex items-center justify-center gap-1 border border-amber-200 transition-colors shrink-0 cursor-pointer"
                       title="Reset search and filters"
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -2664,7 +2666,7 @@ export default function StoreApprovals() {
                         </div>
                       ) : (
                         filteredCatalogItems(userItemSearchQuery).map(item => {
-                          const rawVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+                          const rawVariants = parseItemVariants(item.variants, item.cost || 0);
                           const itemVariants = filterVariantsForSearch(item, rawVariants, userItemSearchQuery);
 
                           if (itemVariants.length > 0) {
@@ -2684,6 +2686,7 @@ export default function StoreApprovals() {
                                   {itemVariants.map(v => {
                                     const variantKey = `${item.id}_${v.label}`;
                                     const isSelected = userSelectedItems.some(i => i.cart_key === variantKey);
+                                    const isAvail = v.is_available !== false;
                                     return (
                                       <div
                                         key={v.label}
@@ -2693,8 +2696,13 @@ export default function StoreApprovals() {
                                       >
                                         <div className="flex items-center gap-2 min-w-0">
                                           <span className="text-devo-500 font-bold text-xs select-none">└─</span>
-                                          <span className="text-xs font-bold text-slate-800 break-words">{v.label}</span>
+                                          <span className={`text-xs font-bold break-words ${isAvail ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{v.label}</span>
                                           <span className="font-mono text-[11px] text-devo-800 font-bold">₹{v.cost}</span>
+                                          {!isAvail && (
+                                            <span className="ml-1 text-[9px] font-bold text-rose-500 uppercase bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
+                                              Out of Stock
+                                            </span>
+                                          )}
                                         </div>
 
                                         <button
@@ -3027,7 +3035,7 @@ export default function StoreApprovals() {
                         </div>
                       ) : (
                         filteredCatalogItems(guestItemSearchQuery).map(item => {
-                          const rawVariants = parseItemVariants(item.variants, item.cost || 0).filter(v => v.is_available !== false);
+                          const rawVariants = parseItemVariants(item.variants, item.cost || 0);
                           const itemVariants = filterVariantsForSearch(item, rawVariants, guestItemSearchQuery);
 
                           if (itemVariants.length > 0) {
@@ -3047,6 +3055,7 @@ export default function StoreApprovals() {
                                   {itemVariants.map(v => {
                                     const variantKey = `${item.id}_${v.label}`;
                                     const isSelected = guestSelectedItems.some(i => i.cart_key === variantKey);
+                                    const isAvail = v.is_available !== false;
                                     return (
                                       <div
                                         key={v.label}
@@ -3056,8 +3065,13 @@ export default function StoreApprovals() {
                                       >
                                         <div className="flex items-center gap-2 min-w-0">
                                           <span className="text-purple-500 font-bold text-xs select-none">└─</span>
-                                          <span className="text-xs font-bold text-slate-800 break-words">{v.label}</span>
+                                          <span className={`text-xs font-bold break-words ${isAvail ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{v.label}</span>
                                           <span className="font-mono text-[11px] text-purple-800 font-bold">₹{v.cost}</span>
+                                          {!isAvail && (
+                                            <span className="ml-1 text-[9px] font-bold text-rose-500 uppercase bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
+                                              Out of Stock
+                                            </span>
+                                          )}
                                         </div>
 
                                         <button

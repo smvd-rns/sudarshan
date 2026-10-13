@@ -167,6 +167,8 @@ export default function StoreItemsAdmin() {
     const itemCost = validVariants[0].cost || 0;
     const assignedCode = newItemCode || getNextItemCode(items);
 
+    const hasAnyAvailable = validVariants.some(v => v.is_available !== false);
+
     const res = await fetch('/api/store/items', {
       method: 'POST',
       headers: {
@@ -178,7 +180,8 @@ export default function StoreItemsAdmin() {
         item_name: newItemName,
         category: newCategory,
         cost: itemCost,
-        variants: validVariants
+        variants: validVariants,
+        is_available: hasAnyAvailable
       })
     });
 
@@ -246,6 +249,8 @@ export default function StoreItemsAdmin() {
     setIsSavingEdit(true);
     const itemCost = validVariants[0].cost || 0;
 
+    const hasAnyAvailable = validVariants.some(v => v.is_available !== false);
+
     const res = await fetch('/api/store/items', {
       method: 'PUT',
       headers: {
@@ -258,7 +263,8 @@ export default function StoreItemsAdmin() {
         item_name: editName,
         category: editCategory,
         cost: itemCost,
-        variants: validVariants
+        variants: validVariants,
+        is_available: hasAnyAvailable
       })
     });
 
@@ -279,9 +285,10 @@ export default function StoreItemsAdmin() {
     if (!parsed[variantIdx]) return;
 
     parsed[variantIdx].is_available = !(parsed[variantIdx].is_available !== false);
+    const hasAnyAvailable = parsed.some(v => v.is_available !== false);
 
     // Optimistic UI update
-    setItems(items.map(i => i.id === item.id ? { ...i, variants: parsed } : i));
+    setItems(items.map(i => i.id === item.id ? { ...i, variants: parsed, is_available: hasAnyAvailable } as any : i));
 
     await fetch('/api/store/items', {
       method: 'PUT',
@@ -291,7 +298,8 @@ export default function StoreItemsAdmin() {
       },
       body: JSON.stringify({
         ...item,
-        variants: parsed
+        variants: parsed,
+        is_available: hasAnyAvailable
       })
     });
   };

@@ -429,16 +429,23 @@ export default function CreateGuestRequestPage() {
       )}
 
       {/* Step 1: Guest Information & Date */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-        <h2 className="text-xs font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
-          <User className="w-4 h-4 text-purple-600" />
-          Step 1: Guest Information & Request Date
-        </h2>
+      <div className="bg-white rounded-2xl border-2 border-purple-300 shadow-sm p-4 sm:p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+          <h2 className="text-xs sm:text-sm font-black text-purple-900 uppercase tracking-wider flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs font-black shadow-xs">
+              1
+            </span>
+            Step 1: Guest Information & Request Date
+          </h2>
+          <span className="text-[11px] font-bold text-purple-800 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-200">
+            Guest Visitor
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 mb-1.5">
               Guest Full Name <span className="text-rose-500">*</span>
             </label>
             <input
@@ -446,13 +453,13 @@ export default function CreateGuestRequestPage() {
               placeholder="e.g. HH Jayapataka Swami"
               value={guestName}
               onChange={e => setGuestName(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-purple-500 text-slate-800"
+              className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-200/50 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none shadow-xs transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-              <Building className="w-3.5 h-3.5 text-slate-400" />
+            <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center gap-1">
+              <Building className="w-3.5 h-3.5 text-purple-600" />
               Temple / Location
             </label>
             <input
@@ -460,13 +467,13 @@ export default function CreateGuestRequestPage() {
               placeholder="e.g. ISKCON Mayapur"
               value={guestTemple}
               onChange={e => setGuestTemple(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-purple-500 text-slate-800"
+              className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-200/50 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none shadow-xs transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-              <Phone className="w-3.5 h-3.5 text-slate-400" />
+            <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center gap-1">
+              <Phone className="w-3.5 h-3.5 text-purple-600" />
               Mobile Number (Optional)
             </label>
             <input
@@ -474,20 +481,20 @@ export default function CreateGuestRequestPage() {
               placeholder="e.g. +91 98765 43210"
               value={guestMobile}
               onChange={e => setGuestMobile(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-purple-500 text-slate-800"
+              className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-200/50 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none shadow-xs transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-purple-600" />
               Request Date
             </label>
             <input
               type="date"
               value={requestDate}
               onChange={e => setRequestDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-purple-500 text-slate-800 cursor-pointer"
+              className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-200/50 rounded-xl text-xs font-bold outline-none text-slate-800 cursor-pointer shadow-xs transition-all"
             />
           </div>
 
@@ -498,109 +505,112 @@ export default function CreateGuestRequestPage() {
       <div className="space-y-4">
           
         {/* Controls Bar */}
-          <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-purple-600" />
-                <h2 className="text-sm sm:text-base font-bold text-slate-800 font-outfit">
-                  Store Item Catalog ({filteredAndSortedItems.length})
-                </h2>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-slate-300 shadow-sm space-y-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="w-6 h-6 rounded-lg bg-slate-800 text-white flex items-center justify-center text-xs font-black shadow-xs">
+                2
+              </span>
+              <Package className="w-5 h-5 text-purple-600" />
+              <h2 className="text-sm sm:text-base font-bold text-slate-800 font-outfit">
+                Store Item Catalog ({filteredAndSortedItems.length})
+              </h2>
 
-                {/* View Switcher */}
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 ml-1">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("list")}
-                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                      viewMode === "list"
-                        ? "bg-white text-purple-700 shadow-2xs font-black"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <LayoutList className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">List</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("grid")}
-                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                      viewMode === "grid"
-                        ? "bg-white text-purple-700 shadow-2xs font-black"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Grid</span>
-                  </button>
-                </div>
-
-                {cartItems.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsReviewModalOpen(true)}
-                    className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer ml-1"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>Review & Submit ({cartItems.length})</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Category Pills & Sort Dropdown */}
-              <div className="flex flex-wrap items-center gap-2">
-                {availableCategories.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {availableCategories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setCategoryFilter(cat as any)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
-                          categoryFilter === cat
-                            ? "bg-purple-600 text-white shadow-2xs"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      >
-                        {cat === "all" ? "All" : cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 border border-slate-200 rounded-xl text-xs font-medium text-slate-600">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <select
-                    value={sortBy}
-                    onChange={e => setSortBy(e.target.value as any)}
-                    className="bg-transparent outline-none cursor-pointer font-bold text-slate-800 text-[11px] truncate"
-                  >
-                    <option value="code_asc">Code</option>
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Catalog Search Input */}
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search catalog by item name, code, or variety..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-purple-500 focus:bg-white transition-all"
-              />
-              {searchQuery && (
+              {/* View Switcher */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 ml-1">
                 <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    viewMode === "list"
+                      ? "bg-white text-purple-700 shadow-2xs font-black"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <LayoutList className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    viewMode === "grid"
+                      ? "bg-white text-purple-700 shadow-2xs font-black"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+              </div>
+
+              {cartItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsReviewModalOpen(true)}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer ml-1"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  <span>Review & Submit ({cartItems.length})</span>
                 </button>
               )}
             </div>
+
+            {/* Category Pills & Sort Dropdown */}
+            <div className="flex flex-wrap items-center gap-2">
+              {availableCategories.length > 0 && (
+                <div className="flex items-center gap-1">
+                  {availableCategories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat as any)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
+                        categoryFilter === cat
+                          ? "bg-purple-600 text-white shadow-2xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {cat === "all" ? "All" : cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 border-2 border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-xs">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as any)}
+                  className="bg-transparent outline-none cursor-pointer font-bold text-slate-800 text-[11px] truncate"
+                >
+                  <option value="code_asc">Code</option>
+                  <option value="name_asc">Name A-Z</option>
+                  <option value="name_desc">Name Z-A</option>
+                </select>
+              </div>
+            </div>
           </div>
+
+          {/* Catalog Search Input - High Contrast Prominent Box */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search catalog by item name, code, or variety..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-9 py-2.5 bg-slate-50/70 hover:bg-white focus:bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-200/50 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none shadow-xs transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
           {/* Catalog Open Tree Diagram */}
           {viewMode === "list" ? (
@@ -675,9 +685,8 @@ export default function CreateGuestRequestPage() {
 
                               <button
                                 type="button"
-                                disabled={!avail}
                                 onClick={() => addItemToCart(item, v.label)}
-                                className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                               >
                                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                                 <span>Add</span>
@@ -772,9 +781,8 @@ export default function CreateGuestRequestPage() {
 
                               <button
                                 type="button"
-                                disabled={!avail}
                                 onClick={() => addItemToCart(item, v.label)}
-                                className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                               >
                                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                                 <span>Add</span>

@@ -226,6 +226,15 @@ export default function StoreRequest() {
   const filteredAndSortedItems = useMemo(() => {
     return items
       .filter(item => {
+        if (!canAccessAdminTools) {
+          // If not admin/manager, hide if item itself is marked unavailable
+          if ((item as any).is_available === false) return false;
+          // Also hide if all variants are out of stock
+          const parsed = parseItemVariants(item.variants, item.cost);
+          if (parsed.length > 0 && !parsed.some(v => v.is_available !== false)) {
+            return false;
+          }
+        }
         if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
         return matchStoreItem(item, searchQuery);
       })
@@ -235,7 +244,7 @@ export default function StoreRequest() {
         if (sortBy === "name_desc") return (b.item_name || "").localeCompare(a.item_name || "");
         return 0;
       });
-  }, [items, searchQuery, categoryFilter, sortBy]);
+  }, [items, searchQuery, categoryFilter, sortBy, canAccessAdminTools]);
 
   // Reset page to 1 when search query, category filter, sort option or page size changes
   useEffect(() => {
@@ -773,7 +782,8 @@ export default function StoreRequest() {
             <div className="space-y-3">
               {paginatedItems.map(item => {
                 const rawVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
-                const parsedVariants = filterVariantsForSearch(item, rawVariants, searchQuery);
+                const visibleVariants = canAccessAdminTools ? rawVariants : rawVariants.filter(v => v.is_available !== false);
+                const parsedVariants = filterVariantsForSearch(item, visibleVariants, searchQuery);
                 const showPrices = !!storeUser?.is_super_or_store_admin;
 
                 return (
@@ -830,7 +840,7 @@ export default function StoreRequest() {
 
                               <button
                                 type="button"
-                                disabled={!avail}
+                                disabled={!avail && !canAccessAdminTools}
                                 onClick={() => addItemToCart(item, v.label)}
                                 className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                               >
@@ -870,7 +880,8 @@ export default function StoreRequest() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {paginatedItems.map(item => {
                 const rawVariants: ItemVariant[] = parseItemVariants(item.variants, item.cost);
-                const parsedVariants = filterVariantsForSearch(item, rawVariants, searchQuery);
+                const visibleVariants = canAccessAdminTools ? rawVariants : rawVariants.filter(v => v.is_available !== false);
+                const parsedVariants = filterVariantsForSearch(item, visibleVariants, searchQuery);
                 const showPrices = !!storeUser?.is_super_or_store_admin;
 
                 return (
@@ -922,7 +933,7 @@ export default function StoreRequest() {
 
                               <button
                                 type="button"
-                                disabled={!avail}
+                                disabled={!avail && !canAccessAdminTools}
                                 onClick={() => addItemToCart(item, v.label)}
                                 className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                               >

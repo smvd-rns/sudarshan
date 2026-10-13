@@ -454,101 +454,155 @@ export default function CreateUserRequestPage() {
       )}
 
       {/* Step 1: Target User Picker & Request Date */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-        <h2 className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
-          <User className="w-4 h-4 text-amber-600" />
-          Step 1: Select Devotee & Request Date
-        </h2>
+      <div className="bg-white rounded-2xl border-2 border-amber-300 shadow-sm p-4 sm:p-5 space-y-4">
+        <div className="flex items-center justify-between border-b border-amber-100 pb-3">
+          <h2 className="text-xs sm:text-sm font-black text-amber-900 uppercase tracking-wider flex items-center gap-2">
+            <span className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs font-black shadow-xs">
+              1
+            </span>
+            Step 1: Select Devotee & Request Date
+          </h2>
+          <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+            Devotee Beneficiary
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          {/* Devotee User Picker Dropdown */}
+          {/* Devotee User Picker - Single Unified Search Input */}
           <div className="md:col-span-2 relative" ref={userDropdownRef}>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Select Registered Devotee / User <span className="text-rose-500">*</span>
-            </label>
-            <div
-              onClick={() => setIsUserDropdownOpen(prev => !prev)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-between cursor-pointer hover:border-amber-400 transition-colors"
-            >
-              {selectedUserObj ? (
-                <div className="flex items-center gap-2 truncate">
-                  <span className="text-slate-900">{selectedUserObj.full_name}</span>
-                  {selectedUserObj.temple && (
-                    <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">
-                      {selectedUserObj.temple}
-                    </span>
-                  )}
-                  {selectedUserObj.mobile && (
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      ({selectedUserObj.mobile})
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-slate-400">Search & Select Devotee User...</span>
+            <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+              <span>Select Registered Devotee / User <span className="text-rose-500">*</span></span>
+              {selectedUserObj && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedUserId("");
+                    setUserSearchQuery("");
+                    setIsUserDropdownOpen(false);
+                  }}
+                  className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline cursor-pointer"
+                >
+                  Change Devotee
+                </button>
               )}
-              <Search className="w-4 h-4 text-slate-400 shrink-0" />
-            </div>
+            </label>
 
-            {/* Dropdown Panel */}
-            {isUserDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+            {selectedUserObj ? (
+              <div className="w-full px-4 py-2.5 bg-amber-50/80 border-2 border-amber-300 rounded-xl flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-amber-200/90 text-amber-900 flex items-center justify-center font-bold text-xs shrink-0">
+                    {selectedUserObj.full_name?.charAt(0) || "D"}
+                  </div>
+                  <div className="min-w-0 truncate">
+                    <span className="font-black text-slate-900 text-xs sm:text-sm mr-2">{selectedUserObj.full_name}</span>
+                    {selectedUserObj.temple && (
+                      <span className="text-[10px] bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded-full font-bold">
+                        {selectedUserObj.temple}
+                      </span>
+                    )}
+                    {selectedUserObj.mobile && selectedUserObj.mobile !== "N/A" && (
+                      <span className="text-[10px] text-slate-500 font-mono ml-2">
+                        • {selectedUserObj.mobile}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedUserId("");
+                    setUserSearchQuery("");
+                    setIsUserDropdownOpen(true);
+                  }}
+                  className="p-1.5 hover:bg-amber-200/60 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
+                  title="Clear & choose another devotee"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search user by name, temple, mobile..."
+                  placeholder="Type devotee name, temple, email or mobile to search..."
                   value={userSearchQuery}
-                  onChange={e => setUserSearchQuery(e.target.value)}
-                  onClick={e => e.stopPropagation()}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-amber-500"
+                  onChange={e => {
+                    setUserSearchQuery(e.target.value);
+                    setIsUserDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsUserDropdownOpen(true)}
+                  className="w-full pl-10 pr-9 py-2.5 bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 rounded-xl text-xs font-bold text-slate-900 shadow-xs outline-none transition-all placeholder:text-slate-400 placeholder:font-normal"
                 />
-                <div className="space-y-1">
-                  {filteredUsers.map(u => (
-                    <div
-                      key={u.id}
-                      onClick={() => {
-                        setSelectedUserId(u.id);
-                        setIsUserDropdownOpen(false);
-                      }}
-                      className={`p-2 rounded-xl text-xs font-semibold cursor-pointer flex items-center justify-between transition-colors ${
-                        selectedUserId === u.id
-                          ? "bg-amber-100 text-amber-900"
-                          : "hover:bg-slate-100 text-slate-800"
-                      }`}
-                    >
-                      <div>
-                        <div className="font-bold">{u.full_name}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {u.temple ? `${u.temple} • ` : ""}
-                          {u.email}
+                {userSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setUserSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Dropdown Panel with Filtered Users List */}
+                {isUserDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border-2 border-slate-200 rounded-2xl shadow-xl z-50 p-1.5 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="space-y-1">
+                      {filteredUsers.map(u => (
+                        <div
+                          key={u.id}
+                          onClick={() => {
+                            setSelectedUserId(u.id);
+                            setUserSearchQuery("");
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className={`p-2.5 rounded-xl text-xs font-semibold cursor-pointer flex items-center justify-between transition-colors ${
+                            selectedUserId === u.id
+                              ? "bg-amber-100 text-amber-900 border border-amber-300"
+                              : "hover:bg-amber-50/70 text-slate-800"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="font-black text-slate-900 text-xs sm:text-sm">{u.full_name}</div>
+                            <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                              {u.temple && (
+                                <span className="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-medium">
+                                  {u.temple}
+                                </span>
+                              )}
+                              <span>{u.email}</span>
+                              {u.mobile && u.mobile !== "N/A" && <span className="font-mono">({u.mobile})</span>}
+                            </div>
+                          </div>
+                          {selectedUserId === u.id && (
+                            <Check className="w-4 h-4 text-amber-700 shrink-0" />
+                          )}
                         </div>
-                      </div>
-                      {selectedUserId === u.id && (
-                        <Check className="w-4 h-4 text-amber-700" />
+                      ))}
+                      {filteredUsers.length === 0 && (
+                        <div className="p-4 text-center text-xs text-slate-400 font-medium">
+                          No matching registered devotees found for "{userSearchQuery}".
+                        </div>
                       )}
                     </div>
-                  ))}
-                  {filteredUsers.length === 0 && (
-                    <div className="p-3 text-center text-xs text-slate-400">
-                      No matching registered users found.
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Request Date Picker */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-amber-600" />
               Request Date
             </label>
             <input
               type="date"
               value={requestDate}
               onChange={e => setRequestDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 text-slate-800 cursor-pointer"
+              className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 rounded-xl text-xs font-bold outline-none text-slate-800 cursor-pointer shadow-xs transition-all"
             />
           </div>
         </div>
@@ -558,109 +612,112 @@ export default function CreateUserRequestPage() {
       <div className="space-y-4">
           
         {/* Controls Bar */}
-          <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-amber-600" />
-                <h2 className="text-sm sm:text-base font-bold text-slate-800 font-outfit">
-                  Store Item Catalog ({filteredAndSortedItems.length})
-                </h2>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border-2 border-slate-300 shadow-sm space-y-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="w-6 h-6 rounded-lg bg-slate-800 text-white flex items-center justify-center text-xs font-black shadow-xs">
+                2
+              </span>
+              <Package className="w-5 h-5 text-amber-600" />
+              <h2 className="text-sm sm:text-base font-bold text-slate-800 font-outfit">
+                Store Item Catalog ({filteredAndSortedItems.length})
+              </h2>
 
-                {/* View Switcher */}
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 ml-1">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("list")}
-                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                      viewMode === "list"
-                        ? "bg-white text-amber-700 shadow-2xs font-black"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <LayoutList className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">List</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("grid")}
-                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
-                      viewMode === "grid"
-                        ? "bg-white text-amber-700 shadow-2xs font-black"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Grid</span>
-                  </button>
-                </div>
-
-                {cartItems.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsReviewModalOpen(true)}
-                    className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer ml-1"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>Review & Submit ({cartItems.length})</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Category Pills & Sort Dropdown */}
-              <div className="flex flex-wrap items-center gap-2">
-                {availableCategories.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {availableCategories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setCategoryFilter(cat as any)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
-                          categoryFilter === cat
-                            ? "bg-amber-600 text-white shadow-2xs"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      >
-                        {cat === "all" ? "All" : cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 border border-slate-200 rounded-xl text-xs font-medium text-slate-600">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <select
-                    value={sortBy}
-                    onChange={e => setSortBy(e.target.value as any)}
-                    className="bg-transparent outline-none cursor-pointer font-bold text-slate-800 text-[11px] truncate"
-                  >
-                    <option value="code_asc">Code</option>
-                    <option value="name_asc">Name A-Z</option>
-                    <option value="name_desc">Name Z-A</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Catalog Search Input */}
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search catalog by item name, code, or variety..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-amber-500 focus:bg-white transition-all"
-              />
-              {searchQuery && (
+              {/* View Switcher */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 ml-1">
                 <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    viewMode === "list"
+                      ? "bg-white text-amber-700 shadow-2xs font-black"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <LayoutList className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                    viewMode === "grid"
+                      ? "bg-white text-amber-700 shadow-2xs font-black"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+              </div>
+
+              {cartItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsReviewModalOpen(true)}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer ml-1"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  <span>Review & Submit ({cartItems.length})</span>
                 </button>
               )}
             </div>
+
+            {/* Category Pills & Sort Dropdown */}
+            <div className="flex flex-wrap items-center gap-2">
+              {availableCategories.length > 0 && (
+                <div className="flex items-center gap-1">
+                  {availableCategories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat as any)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
+                        categoryFilter === cat
+                          ? "bg-amber-600 text-white shadow-2xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {cat === "all" ? "All" : cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 border-2 border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-xs">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as any)}
+                  className="bg-transparent outline-none cursor-pointer font-bold text-slate-800 text-[11px] truncate"
+                >
+                  <option value="code_asc">Code</option>
+                  <option value="name_asc">Name A-Z</option>
+                  <option value="name_desc">Name Z-A</option>
+                </select>
+              </div>
+            </div>
           </div>
+
+          {/* Catalog Search Input - High Contrast Prominent Box */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search catalog by item name, code, or variety..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-9 py-2.5 bg-slate-50/70 hover:bg-white focus:bg-white border-2 border-slate-300 hover:border-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none shadow-xs transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
           {/* Catalog Open Tree Diagram */}
           {viewMode === "list" ? (
@@ -735,9 +792,8 @@ export default function CreateUserRequestPage() {
 
                               <button
                                 type="button"
-                                disabled={!avail}
                                 onClick={() => addItemToCart(item, v.label)}
-                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                               >
                                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                                 <span>Add</span>
@@ -832,9 +888,8 @@ export default function CreateUserRequestPage() {
 
                               <button
                                 type="button"
-                                disabled={!avail}
                                 onClick={() => addItemToCart(item, v.label)}
-                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-2xs transition-all active:scale-95 shrink-0"
                               >
                                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
                                 <span>Add</span>

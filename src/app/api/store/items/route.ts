@@ -44,43 +44,66 @@ export async function GET(request: Request) {
 
   let result = data || [];
 
-  // Filter out items where is_available is explicitly false for non-admin public requests
-  if (!includeUnavailable) {
-    result = result.filter((item: any) => item.is_available !== false);
-  }
+  // Determine user permissions and role
+  let isStoreAdminOrManager = false;
+  let userAccessLevel = 'none';
 
-  // Attempt to check access level based on token
   try {
     const authHeader = request.headers.get("Authorization");
     if (authHeader) {
       const user = getUserFromToken(request);
       if (user && user.id) {
+        isStoreAdminOrManager = await checkIsAdmin(user.id);
         const { data: storeUser } = await supabaseIdktAdmin!
           .from('store_users')
           .select('store_access_level, is_store_admin, has_special_access')
           .eq('id', user.id)
           .maybeSingle();
-        
-        if (storeUser && !storeUser.is_store_admin) {
-          const accessLevel = storeUser.store_access_level || (storeUser.has_special_access ? 'internal' : 'none');
-          if (accessLevel === 'general') {
-             // General access only sees General items
-             result = result.filter((item: any) => item.category === 'General');
-          } else if (accessLevel === 'none') {
-             result = [];
-          }
+
+        if (storeUser) {
+          if (storeUser.is_store_admin) isStoreAdminOrManager = true;
+          userAccessLevel = storeUser.store_access_level || (storeUser.has_special_access ? 'internal' : 'none');
         }
-      } else {
-        // No valid user token, return empty unless includeUnavailable which implies admin route
-        if (!includeUnavailable) result = [];
       }
-    } else {
-       if (!includeUnavailable) result = [];
     }
   } catch (err) {
     // If auth fails, default to restricted
-    if (!includeUnavailable) result = [];
   }
+
+  // If user is a store admin or store manager OR 'all=true' was explicitly requested by authorized route:
+  if (isStoreAdminOrManager || includeUnavailable) {
+    return NextResponse.json(result);
+  }
+
+  // For regular / normal users:
+  if (userAccessLevel === 'general') {
+    result = result.filter((item: any) => item.category === 'General');
+  } else if (userAccessLevel === 'none') {
+    return NextResponse.json([]);
+  }
+
+  // Filter out any out-of-stock items for normal users:
+  // 1. Item explicitly marked is_available === false
+  // 2. Item has variants and all variants are is_available === false
+  result = result
+    .filter((item: any) => {
+      if (item.is_available === false) return false;
+      if (Array.isArray(item.variants) && item.variants.length > 0) {
+        const hasAnyAvailableVariant = item.variants.some((v: any) => v.is_available !== false);
+        if (!hasAnyAvailableVariant) return false;
+      }
+      return true;
+    })
+    .map((item: any) => {
+      // Also filter out unavailable variants from item.variants for normal users so they only see in-stock variants
+      if (Array.isArray(item.variants) && item.variants.length > 0) {
+        return {
+          ...item,
+          variants: item.variants.filter((v: any) => v.is_available !== false)
+        };
+      }
+      return item;
+    });
 
   return NextResponse.json(result);
 }
@@ -122,13 +145,17 @@ export async function POST(request: Request) {
       item_code = String(maxNum + 1).padStart(3, '0');
     }
 
+    const computedAvailable = typeof is_available === 'boolean' 
+      ? is_available 
+      : (Array.isArray(variants) && variants.length > 0 ? variants.some((v: any) => v.is_available !== false) : true);
+
     const insertPayload: any = {
       item_code,
       item_name,
       category,
       cost,
       variants,
-      is_available: typeof is_available === 'boolean' ? is_available : true
+      is_available: computedAvailable
     };
 
     let { data, error } = await supabaseIdktAdmin!
@@ -184,13 +211,17 @@ export async function PUT(request: Request) {
 
     if (!id) return NextResponse.json({ error: "Missing item ID" }, { status: 400 });
 
+    const computedAvailable = typeof is_available === 'boolean' 
+      ? is_available 
+      : (Array.isArray(variants) && variants.length > 0 ? variants.some((v: any) => v.is_available !== false) : true);
+
     const updatePayload: any = {
       item_code,
       item_name,
       category,
       cost,
       variants,
-      is_available: typeof is_available === 'boolean' ? is_available : true,
+      is_available: computedAvailable,
       updated_at: new Date().toISOString()
     };
 
