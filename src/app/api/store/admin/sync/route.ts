@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       const uRoles = rawRoles.map((r: any) => Number(r)).filter((r: any) => !isNaN(r));
       const hasAnyStoreAdminAccess = uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
 
-      const defaultAccessLevel = (isBcdb || hasAnyStoreAdminAccess) ? 'internal' : 'none';
+      const defaultAccessLevel = hasAnyStoreAdminAccess ? 'internal' : 'none';
       const accessLevel = su.store_access_level || defaultAccessLevel;
       const isAdminRole = typeof su.is_store_admin === 'boolean' ? (su.is_store_admin || hasAnyStoreAdminAccess) : hasAnyStoreAdminAccess;
 

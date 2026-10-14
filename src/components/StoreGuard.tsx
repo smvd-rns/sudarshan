@@ -41,6 +41,7 @@ export function useStoreAuth() {
         }
 
         const res = await fetch('/api/store/auth', {
+          cache: 'no-store',
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }

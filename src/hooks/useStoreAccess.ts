@@ -14,30 +14,22 @@ interface StoreAccessCacheObj {
 let globalStoreAccessCache: StoreAccessCacheObj | null = null;
 
 function readCachedAccess(currentUserId?: string): { hasAccess: boolean; isAdmin: boolean } | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !currentUserId) return null;
 
   try {
-    // 1. Try user-specific cache if currentUserId is available
-    if (currentUserId) {
-      const userCached = localStorage.getItem(`store_access_${currentUserId}`);
-      if (userCached) {
-        const parsed = JSON.parse(userCached);
-        if (typeof parsed === "boolean") {
-          return { hasAccess: parsed, isAdmin: false };
-        }
-        if (parsed && typeof parsed === "object" && typeof parsed.hasAccess === "boolean") {
-          const isFresh = !parsed.updatedAt || (Date.now() - parsed.updatedAt < CACHE_TTL_MS);
-          if (isFresh) {
-            return { hasAccess: parsed.hasAccess, isAdmin: !!parsed.isAdmin };
-          }
-        }
-      }
+    // Purge legacy v1 caches that may contain stale permissions
+    if (localStorage.getItem("store_access_v") !== "2") {
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith("store_access_")) localStorage.removeItem(k);
+      });
+      localStorage.setItem("store_access_v", "2");
+      return null;
     }
 
-    // 2. Fallback to last known device cache (for immediate frame 0 render before session restores)
-    const lastKnown = localStorage.getItem("store_access_last_known");
-    if (lastKnown) {
-      const parsed = JSON.parse(lastKnown);
+    // Strictly check user-specific cache
+    const userCached = localStorage.getItem(`store_access_${currentUserId}`);
+    if (userCached) {
+      const parsed = JSON.parse(userCached);
       if (typeof parsed === "boolean") {
         return { hasAccess: parsed, isAdmin: false };
       }
@@ -95,6 +87,7 @@ export function useStoreAccess(session: any) {
       lastFetchedUserId.current = currentUserId;
       try {
         const res = await fetch('/api/store/auth', {
+          cache: 'no-store',
           headers: {
             'Authorization': `Bearer ${accessToken}`
           }
@@ -110,7 +103,7 @@ export function useStoreAccess(session: any) {
           try {
             const cacheObj: StoreAccessCacheObj = { userId: currentUserId, hasAccess, isAdmin, updatedAt };
             localStorage.setItem(`store_access_${currentUserId}`, JSON.stringify(cacheObj));
-            localStorage.setItem("store_access_last_known", JSON.stringify(cacheObj));
+            localStorage.removeItem("store_access_last_known");
           } catch {
             // ignore localStorage errors
           }
@@ -135,11 +128,14 @@ export function useStoreAccess(session: any) {
 }
 
 
-export function clearStoreAccessCache() {
+export function clearStoreAccessCache(userId?: string) {
   globalStoreAccessCache = null;
   if (typeof window !== "undefined") {
     try {
       localStorage.removeItem("store_access_last_known");
+      if (userId) {
+        localStorage.removeItem(`store_access_${userId}`);
+      }
     } catch {}
   }
 }

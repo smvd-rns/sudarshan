@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
     const isBcdb = !!bcdbRecord;
 
-    const defaultAccessLevel = (isBcdb || hasAnyStoreAdminAccess) ? 'internal' : 'none';
+    const defaultAccessLevel = hasAnyStoreAdminAccess ? 'internal' : 'none';
     const isStoreAdmin = hasAnyStoreAdminAccess;
 
     if (storeUserErr) {
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
       const effectiveHasAdminAccess = isStoreAdminRole || isStoreManagerRole || isAssignedStoreAdmin;
 
       const needsSync = storeUser.mobile !== profile?.mobile || storeUser.temple !== profile?.temple || storeUser.full_name !== profile?.full_name;
-      const shouldUpgradeAccess = (isBcdb || effectiveHasAdminAccess) && (storeUser.store_access_level === 'none' && !storeUser.has_special_access);
+      const shouldUpgradeAccess = effectiveHasAdminAccess && (storeUser.store_access_level === 'none' && !storeUser.has_special_access);
       const shouldUpgradeAdmin = (isStoreAdminRole || isStoreManagerRole) && !storeUser.is_store_admin;
 
       if (needsSync || shouldUpgradeAccess || shouldUpgradeAdmin) {
@@ -73,8 +73,10 @@ export async function GET(request: Request) {
          if (profile?.full_name) updatePayload.full_name = profile.full_name;
          if (profile?.mobile) updatePayload.mobile = profile.mobile;
          if (profile?.temple) updatePayload.temple = profile.temple;
-         if (shouldUpgradeAccess || (effectiveHasAdminAccess && storeUser.store_access_level === 'none')) {
+         if (shouldUpgradeAccess) {
            updatePayload.store_access_level = 'internal';
+         }
+         if (storeUser.is_bcdb_user !== isBcdb) {
            updatePayload.is_bcdb_user = isBcdb;
          }
          if (shouldUpgradeAdmin) {
@@ -116,8 +118,8 @@ export async function GET(request: Request) {
            can_access_admin_panel: isStoreAdminRole
          };
          const hasAccess = effectiveHasAdminAccess || (effectiveUser?.store_access_level === 'general' || effectiveUser?.store_access_level === 'internal' || effectiveUser?.is_store_admin || effectiveUser?.has_special_access);
-         return NextResponse.json({ storeUser: effectiveUser, access: hasAccess }, {
-           headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+         return NextResponse.json({ storeUser: effectiveUser, access: !!hasAccess }, {
+           headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' }
          });
       }
 
@@ -133,8 +135,8 @@ export async function GET(request: Request) {
         can_access_admin_panel: isStoreAdminRole
       };
       const hasAccess = effectiveHasAdminAccess || (storeUser.store_access_level === 'general' || storeUser.store_access_level === 'internal' || storeUser.is_store_admin || storeUser.has_special_access);
-      return NextResponse.json({ storeUser: effectiveUser, access: hasAccess }, {
-        headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+      return NextResponse.json({ storeUser: effectiveUser, access: !!hasAccess }, {
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' }
       });
     }
 
@@ -181,8 +183,9 @@ export async function GET(request: Request) {
       can_access_admin_panel: isStoreAdminRole
     };
 
-    return NextResponse.json({ storeUser: finalUser, access: true }, {
-      headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=600' }
+    const hasNewUserAccess = finalIsStoreAdmin || hasAnyStoreAdminAccess || (finalUser.store_access_level === 'general' || finalUser.store_access_level === 'internal' || finalUser.has_special_access);
+    return NextResponse.json({ storeUser: finalUser, access: !!hasNewUserAccess }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' }
     });
 
   } catch (error: any) {
