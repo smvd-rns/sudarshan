@@ -1,181 +1,315 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { 
   Globe, 
-  ExternalLink, 
-  BookOpen, 
-  Sparkles, 
-  ArrowLeft, 
-  Headphones, 
-  GraduationCap, 
-  CalendarDays,
-  ShieldCheck,
+  RefreshCw, 
+  Maximize2, 
+  Minimize2, 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCcw, 
+  Monitor, 
+  Smartphone,
   ChevronRight,
-  Info
+  ShieldCheck,
+  ArrowLeft
 } from "lucide-react";
 import NextLink from "next/link";
 
-const RSD_URL = "https://www.radheshyamdas.com/";
+const RSD_URL = "/rsd";
+const DESKTOP_CANVAS_WIDTH = 1200;
 
 export default function RadheshyamDasPage() {
-  const handleLaunchInApp = () => {
-    // Same-window navigation so the Android Web APK keeps the user inside the app
-    window.location.href = RSD_URL;
+  const [iframeLoading, setIframeLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Default to native responsive mobile view
+  const [viewMode, setViewMode] = useState<"responsive" | "desktop">("responsive");
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [containerWidth, setContainerWidth] = useState<number>(1200);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Auto-dismiss loading indicator after 1.2s max so overlay never blocks content
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIframeLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Track container width for responsive scaling if in desktop mode
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      } else {
+        setContainerWidth(window.innerWidth);
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, [isFullscreen]);
+
+  // Handle escape key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
+
+  // Dynamic scale factor for desktop mode on small screens
+  const desktopScale = Math.min(1, Math.max(0.3, (containerWidth > 0 ? containerWidth : 375) / DESKTOP_CANVAS_WIDTH));
+  const activeScale = viewMode === "desktop" ? desktopScale * zoomLevel : 1;
+
+  const handleReload = () => {
+    setIframeLoading(true);
+    if (iframeRef.current) {
+      iframeRef.current.src = RSD_URL;
+    }
+    setTimeout(() => setIframeLoading(false), 1200);
+  };
+
+  const handleZoomIn = () => {
+    setViewMode("desktop");
+    setZoomLevel(prev => Math.min(2.0, Number((prev + 0.15).toFixed(2))));
+  };
+
+  const handleZoomOut = () => {
+    setViewMode("desktop");
+    setZoomLevel(prev => Math.max(0.5, Number((prev - 0.15).toFixed(2))));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/70 font-outfit pb-24">
-      <main className="max-w-4xl mx-auto w-full p-4 sm:p-6">
+    <div className={`font-outfit ${isFullscreen ? "fixed inset-0 z-[2000] bg-slate-900 flex flex-col" : "min-h-screen bg-slate-50/70"}`}>
+      <main className={isFullscreen ? "flex-1 flex flex-col h-full w-full p-0" : "max-w-7xl mx-auto w-full p-2 sm:p-5"}>
         
-        {/* Navigation Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-          <NextLink href="/" className="hover:text-orange-600 transition-colors flex items-center gap-1">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Home</span>
-          </NextLink>
-          <ChevronRight className="w-3 h-3" />
-          <span>More</span>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-orange-600">Radheshyam Das</span>
-        </div>
-
-        {/* Hero Card */}
-        <div className="bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 text-white rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-10 shadow-xl shadow-orange-500/20 relative overflow-hidden mb-6">
-          {/* Decorative glowing circles */}
-          <div className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/3 w-72 h-72 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 translate-y-1/3 -translate-x-1/3 w-64 h-64 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-[10px] font-black uppercase tracking-wider mb-4 border border-white/20">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Official Website Portal</span>
+        {/* Navigation Breadcrumb & Header (Visible when NOT in fullscreen) */}
+        {!isFullscreen && (
+          <div className="mb-2 sm:mb-4">
+            {/* Desktop breadcrumb */}
+            <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+              <NextLink href="/" className="hover:text-orange-600 transition-colors">Home</NextLink>
+              <ChevronRight className="w-3 h-3" />
+              <span>More</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-orange-600">Radheshyam Das</span>
             </div>
 
-            <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight mb-2">
-              HG Radheshyam Das
-            </h1>
+            {/* Sleek Header Bar */}
+            <div className="flex items-center justify-between gap-3 bg-white px-3 py-2.5 sm:px-5 sm:py-3.5 rounded-xl sm:rounded-2xl border border-slate-200/80 shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <NextLink href="/" className="sm:hidden p-1 -ml-1 text-slate-400 hover:text-slate-700">
+                  <ArrowLeft className="w-4 h-4" />
+                </NextLink>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-sm shadow-orange-500/20 shrink-0">
+                  <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-none">
+                      HG Radheshyam Das
+                    </h1>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-200">
+                      <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      In-App
+                    </span>
+                  </div>
+                  <p className="hidden sm:block text-xs text-slate-500 font-semibold mt-0.5">
+                    Official Discourses &amp; Categories &mdash; Ashram In-App Access
+                  </p>
+                </div>
+              </div>
 
-            <p className="text-white/85 text-xs sm:text-sm font-medium leading-relaxed max-w-xl mb-6">
-              Founding Director of VOICE, Temple President at ISKCON NVCC Pune, M.Tech from IIT Bombay, and mentor to thousands of spiritual seekers worldwide.
-            </p>
+              {/* Header Right Action */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={handleReload}
+                  className="sm:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 active:scale-95 transition-all"
+                  title="Reload"
+                >
+                  <RefreshCw className={`w-4 h-4 ${iframeLoading ? "animate-spin text-orange-600" : ""}`} />
+                </button>
+                <button
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-[11px] sm:text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95"
+                  title="Toggle Fullscreen View"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Fullscreen</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-            {/* Launch In-App Button */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Main Portal Card */}
+        <div 
+          ref={containerRef}
+          className={`bg-white shadow-lg border border-slate-200 overflow-hidden relative flex flex-col ${
+            isFullscreen 
+              ? "flex-1 h-full rounded-none border-none" 
+              : "rounded-xl sm:rounded-2xl h-[calc(100dvh-125px)] sm:h-[84vh]"
+          }`}
+        >
+          {/* Controls Bar */}
+          <div className="bg-slate-900 text-white px-2.5 sm:px-4 py-2 flex items-center justify-between gap-1.5 shrink-0 border-b border-slate-800 select-none">
+            {/* Left: View Mode Indicator & Quick Toggles */}
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
-                onClick={handleLaunchInApp}
-                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white text-orange-900 hover:bg-orange-50 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all active:scale-95 group"
+                onClick={() => { setViewMode("responsive"); setZoomLevel(1); }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
+                  viewMode === "responsive" 
+                    ? "bg-orange-600 text-white shadow-sm" 
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                }`}
+                title="Mobile Responsive: Full width, readable fonts, touch-friendly"
               >
-                <Globe className="w-4 h-4 text-orange-600 group-hover:rotate-12 transition-transform" />
-                <span>Launch Website Inside App</span>
-                <ExternalLink className="w-4 h-4 text-orange-400 ml-1" />
+                <Smartphone className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span>Mobile View</span>
               </button>
 
-              <span className="text-[11px] text-white/80 font-medium text-center sm:text-left">
-                Loads seamlessly inside this app. Tap Android Back to return.
-              </span>
+              <button
+                onClick={() => { setViewMode("desktop"); setZoomLevel(1); }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
+                  viewMode === "desktop" 
+                    ? "bg-orange-600 text-white shadow-sm" 
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                }`}
+                title="Desktop View: Full 3-column desktop layout"
+              >
+                <Monitor className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span>Desktop</span>
+              </button>
             </div>
+
+            {/* Center: Zoom Controls (only in desktop mode) */}
+            {viewMode === "desktop" && (
+              <div className="flex items-center gap-1 bg-slate-800/90 rounded-xl p-0.5 border border-slate-700/60">
+                <button
+                  onClick={handleZoomOut}
+                  disabled={activeScale <= 0.3}
+                  className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white disabled:opacity-40 transition-all"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-3 h-3" />
+                </button>
+                <span className="text-[10px] font-mono font-bold text-slate-200 px-1 min-w-[34px] text-center">
+                  {Math.round(activeScale * 100)}%
+                </span>
+                <button
+                  onClick={handleZoomIn}
+                  disabled={activeScale >= 2.0}
+                  className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white disabled:opacity-40 transition-all"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-3 h-3" />
+                </button>
+                {activeScale !== desktopScale && (
+                  <button
+                    onClick={handleResetZoom}
+                    className="p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-all"
+                    title="Reset Zoom"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Right: Reload & Fullscreen */}
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <button
+                onClick={handleReload}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all active:scale-95"
+                title="Reload Website"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${iframeLoading ? "animate-spin text-orange-400" : ""}`} />
+              </button>
+
+              <button
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all active:scale-95"
+                title={isFullscreen ? "Exit Fullscreen" : "Fullscreen View"}
+              >
+                {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Iframe Viewport Container */}
+          <div 
+            className="w-full flex-1 relative bg-[#fdf8f4] overflow-auto touch-pan-y" 
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            {/* Loading Indicator */}
+            {iframeLoading && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm transition-opacity duration-300 pointer-events-none">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600 shadow-sm animate-pulse">
+                    <Globe className="w-5 h-5 animate-bounce" />
+                  </div>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-slate-700">Loading discourses...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Canvas Wrapper */}
+            {viewMode === "responsive" ? (
+              // Native Responsive Mobile View: 100% full width, large text, natural cards
+              <iframe
+                ref={iframeRef}
+                id="radheshyam-das-iframe"
+                src={RSD_URL}
+                title="HG Radheshyam Das Website"
+                onLoad={() => setIframeLoading(false)}
+                className="w-full h-full border-none block bg-transparent"
+                allow="geolocation; microphone; camera; clipboard-read; clipboard-write; fullscreen"
+                loading="eager"
+              />
+            ) : (
+              // Desktop View: Forced 1200px desktop canvas scaled down
+              <div 
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  overflow: "hidden",
+                  position: "relative"
+                }}
+              >
+                <iframe
+                  ref={iframeRef}
+                  id="radheshyam-das-iframe-desktop"
+                  src={RSD_URL}
+                  title="HG Radheshyam Das Website (Desktop)"
+                  onLoad={() => setIframeLoading(false)}
+                  className="border-none block bg-transparent"
+                  allow="geolocation; microphone; camera; clipboard-read; clipboard-write; fullscreen"
+                  loading="eager"
+                  style={{
+                    width: `${DESKTOP_CANVAS_WIDTH}px`,
+                    minWidth: `${DESKTOP_CANVAS_WIDTH}px`,
+                    height: `${100 / activeScale}%`,
+                    minHeight: `${100 / activeScale}%`,
+                    transformOrigin: "top left",
+                    transform: `scale(${activeScale})`,
+                    display: "block"
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Notice for Web APK users */}
-        <div className="bg-orange-50/80 border border-orange-200/80 rounded-2xl p-4 mb-6 flex items-start gap-3">
-          <Info className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
-          <div className="text-xs text-orange-950 leading-relaxed">
-            <p className="font-bold mb-0.5">Ashram Device &amp; Web APK Friendly</p>
-            <p className="text-orange-900/80">
-              This portal navigates directly within your Web APK without opening any external browser, in full compliance with Ashram device policy. Tap the device Back button anytime to return here.
-            </p>
-          </div>
-        </div>
-
-        {/* Highlights / Content Features */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          <div 
-            onClick={handleLaunchInApp}
-            className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">
-              Spiritual Books
-            </h2>
-            <p className="text-xs text-slate-500 font-medium leading-relaxed">
-              Explore best-selling publications including The Art of Mind Control, Essence of Bhagavad Gita, and Vedic Wisdom series.
-            </p>
-          </div>
-
-          <div 
-            onClick={handleLaunchInApp}
-            className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <Headphones className="w-5 h-5" />
-            </div>
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">
-              Discourses &amp; Podcasts
-            </h2>
-            <p className="text-xs text-slate-500 font-medium leading-relaxed">
-              Comprehensive audio classes, Srimad Bhagavatam seminars, and spiritual answers for modern day lifestyle challenges.
-            </p>
-          </div>
-
-          <div 
-            onClick={handleLaunchInApp}
-            className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <GraduationCap className="w-5 h-5" />
-            </div>
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">
-              VOICE Youth Ministry
-            </h2>
-            <p className="text-xs text-slate-500 font-medium leading-relaxed">
-              Discover student empowerment initiatives, hostel communities, and character development workshops across India.
-            </p>
-          </div>
-
-          <div 
-            onClick={handleLaunchInApp}
-            className="bg-white rounded-2xl p-5 border border-slate-200/80 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
-          >
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <CalendarDays className="w-5 h-5" />
-            </div>
-            <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">
-              Schedules &amp; Yatras
-            </h2>
-            <p className="text-xs text-slate-500 font-medium leading-relaxed">
-              Stay updated on upcoming retreats, holy dham pilgrimages, festivals, and spiritual discourse tours.
-            </p>
-          </div>
-        </div>
-
-        {/* Bottom Call to Action */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-100/70 text-orange-700 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wider text-slate-900">
-                Ready to explore?
-              </p>
-              <p className="text-[11px] text-slate-500 font-medium">
-                Visit radheshyamdas.com directly inside your app
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleLaunchInApp}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs uppercase tracking-wider shadow-sm transition-all active:scale-95"
-          >
-            <span>Open Website Now</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
       </main>
     </div>
   );

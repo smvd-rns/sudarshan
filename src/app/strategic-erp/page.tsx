@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import NextLink from "next/link";
 
-const ERP_URL = "https://12.strategicerpcloud.com/strategicerp/";
+const ERP_URL = "/strategicerp";
 const DESKTOP_CANVAS_WIDTH = 1280;
 
 export default function StrategicErpPage() {
@@ -129,12 +129,12 @@ export default function StrategicErpPage() {
               {/* Actions */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => { window.location.href = ERP_URL; }}
+                  onClick={() => setIsFullscreen(!isFullscreen)}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-blue-500/20 transition-all active:scale-95"
-                  title="Launch full screen inside the app for seamless OTP login without cookie blocking"
+                  title="Toggle Fullscreen View"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Launch In-App</span>
+                  <Maximize2 className="w-4 h-4" />
+                  <span>Fullscreen</span>
                 </button>
               </div>
             </div>
@@ -147,7 +147,7 @@ export default function StrategicErpPage() {
             <div className="flex items-start gap-2.5 font-medium">
               <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <div className="leading-relaxed">
-                <strong>Web APK &amp; OTP Notice:</strong> If login requires OTP verification, tap <strong>Launch In-App</strong> above so session cookies work smoothly without looping. Use the Android Back button to return to Spiritual Echoes.
+                <strong>Ashram &amp; Web APK Optimized:</strong> Connected via secure same-origin proxy. Third-party cookie restrictions are bypassed, allowing OTP login to verify cleanly without getting stuck in a loop.
               </div>
             </div>
             <button 
@@ -254,15 +254,13 @@ export default function StrategicErpPage() {
                 {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
               </button>
 
-              <a
-                href={ERP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={handleResetZoom}
                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all active:scale-95"
-                title="Open in new window"
+                title="Reset View"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
