@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const RSD_ORIGIN = "https://radheshyamdas.com";
+
 /**
- * Shared reverse proxy handler for the /rsd route tree.
- * Imported by both src/app/rsd/route.ts and src/app/rsd/[...path]/route.ts.
+ * Reverse proxy handler for Radheshyam Das website.
+ * Serves the full pre-rendered HTML with CDN assets while stripping
+ * client-side hydration scripts that fail when embedded cross-origin.
  */
 export async function rsdProxyHandler(req: NextRequest, pathSegments: string[]) {
-  // Filter out empty segments (the root /rsd route passes [""])
   const path = pathSegments.filter(Boolean).join("/");
   const searchParams = req.nextUrl.search;
-  const targetUrl = `https://radheshyamdas.com/${path}${searchParams}`;
+  const targetUrl = `${RSD_ORIGIN}/${path}${searchParams}`;
 
   const headers = new Headers();
   req.headers.forEach((value, key) => {
@@ -16,25 +18,15 @@ export async function rsdProxyHandler(req: NextRequest, pathSegments: string[]) 
     if (lowerKey === "host") {
       headers.set("host", "radheshyamdas.com");
     } else if (lowerKey === "user-agent") {
-      // Force desktop user-agent to ensure backend doesn't serve mobile templates
+      // Send desktop user agent so backend serves full desktop layout
       headers.set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
     } else {
       headers.set(key, value);
     }
   });
 
-  if (headers.has("origin")) {
-    headers.set("origin", "https://radheshyamdas.com");
-  }
-  if (headers.has("referer")) {
-    const originalReferer = headers.get("referer") || "";
-    try {
-      const refUrl = new URL(originalReferer);
-      headers.set("referer", `https://radheshyamdas.com${refUrl.pathname}${refUrl.search}`);
-    } catch {
-      headers.set("referer", `https://radheshyamdas.com/${path}`);
-    }
-  }
+  headers.set("origin", RSD_ORIGIN);
+  headers.set("referer", `${RSD_ORIGIN}/`);
 
   const method = req.method;
   let body: any = null;
@@ -51,98 +43,54 @@ export async function rsdProxyHandler(req: NextRequest, pathSegments: string[]) 
       method,
       headers,
       body,
-      redirect: "manual", // Handle redirects ourselves to rewrite Location headers
+      redirect: "follow",
     });
 
     const responseHeaders = new Headers();
     response.headers.forEach((value, key) => {
       const lowerKey = key.toLowerCase();
-      
-      // Skip hop-by-hop headers to prevent proxy protocol issues
+      // Strip framing restrictions and compression headers
       if (
-        lowerKey === "connection" ||
-        lowerKey === "keep-alive" ||
-        lowerKey === "proxy-authenticate" ||
-        lowerKey === "proxy-authorization" ||
-        lowerKey === "te" ||
-        lowerKey === "trailer" ||
-        lowerKey === "transfer-encoding" ||
-        lowerKey === "upgrade"
+        lowerKey === "x-frame-options" ||
+        lowerKey === "content-security-policy" ||
+        lowerKey === "cross-origin-opener-policy" ||
+        lowerKey === "content-encoding" ||
+        lowerKey === "content-length"
       ) {
         return;
       }
-
-      if (lowerKey === "set-cookie") {
-        // Strip Secure + SameSite so cookies work on localhost/http
-        const rawCookies = response.headers.getSetCookie();
-        rawCookies
-          .map(c => c
-            .replace(/;\s*secure/i, "")
-            .replace(/;\s*samesite=\w+/i, "")
-            .replace(/;\s*path=\/rsd\//i, "; Path=/rsd")
-            .trim()
-          )
-          .forEach(c => responseHeaders.append("set-cookie", c));
-      } else if (lowerKey === "location") {
-        let redirectUrl = value;
-
-        // Rewrite absolute external URLs to relative /rsd paths
-        if (redirectUrl.startsWith("https://radheshyamdas.com/") || redirectUrl.startsWith("http://radheshyamdas.com/")) {
-          redirectUrl = redirectUrl.replace(/^https?:\/\/radheshyamdas\.com\//i, "/rsd/");
-        } else if (redirectUrl === "https://radheshyamdas.com" || redirectUrl === "http://radheshyamdas.com") {
-          redirectUrl = "/rsd";
-        }
-
-        // Avoid infinite loop
-        if (redirectUrl === "/rsd/") {
-          redirectUrl = "/rsd";
-        }
-
-        // Resolve relative redirects
-        if (!redirectUrl.startsWith("/") && !redirectUrl.startsWith("http")) {
-          const basePath = path ? `/rsd/${path.split('/').slice(0, -1).join('/')}` : '/rsd';
-          redirectUrl = `${basePath.endsWith('/') ? basePath : basePath + '/'}${redirectUrl}`;
-        }
-
-        // Prepend /rsd to any absolute-path-relative redirect
-        if (redirectUrl.startsWith("/") && !redirectUrl.startsWith("/rsd")) {
-          redirectUrl = `/rsd${redirectUrl}`;
-        }
-
-        responseHeaders.set("location", redirectUrl);
-      } else {
-        responseHeaders.set(key, value);
-      }
+      responseHeaders.set(key, value);
     });
 
-    responseHeaders.delete("content-encoding");
-    responseHeaders.delete("content-length");
-
     const contentType = responseHeaders.get("content-type") || "";
+
     if (contentType.toLowerCase().includes("text/html")) {
       let html = await response.text();
-      
-      const dirPath = path ? path.split('/').slice(0, -1).join('/') : "";
-      const baseHref = dirPath ? `/rsd/${dirPath}/` : `/rsd/`;
 
+      // 1. Remove client hydration scripts to avoid Next.js domain mismatch / error boundary crash
+      html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+
+      // 2. Direct all assets, fonts, CSS and images to canonical CDN
+      html = html.replaceAll('href="/_next/', `href="${RSD_ORIGIN}/_next/`);
+      html = html.replaceAll('src="/_next/', `src="${RSD_ORIGIN}/_next/`);
+      html = html.replaceAll('href="/', `href="${RSD_ORIGIN}/`);
+      html = html.replaceAll('src="/', `src="${RSD_ORIGIN}/`);
+      html = html.replaceAll('url(/', `url(${RSD_ORIGIN}/`);
+      html = html.replaceAll('url("/', `url("${RSD_ORIGIN}/`);
+      html = html.replaceAll('url(\'/', `url(\'${RSD_ORIGIN}/`);
+
+      // 3. Add base tag so links open externally
+      const baseTag = `<base href="${RSD_ORIGIN}/" target="_blank">`;
       if (html.toLowerCase().includes("<head>")) {
-        html = html.replace(/<head>/i, `<head><base href="${baseHref}">`);
+        html = html.replace(/<head>/i, `<head>${baseTag}`);
       } else if (html.toLowerCase().includes("<html")) {
-        html = html.replace(/<html[^>]*>/i, `$&<head><base href="${baseHref}"></head>`);
+        html = html.replace(/<html[^>]*>/i, `$&<head>${baseTag}</head>`);
       } else {
-        html = `<head><base href="${baseHref}"></head>` + html;
+        html = `<head>${baseTag}</head>` + html;
       }
 
-      // Rewrite absolute backend URLs to relative /rsd/ paths in the HTML
-      html = html.replace(/(href|src|action)=["']https?:\/\/radheshyamdas\.com\//gi, '$1="/rsd/');
-      
-      // Rewrite root-relative paths to be /rsd/ relative
-      html = html.replace(/(href|src|action)=["']\/(?!\/|rsd\/)/gi, '$1="/rsd/');
-      html = html.replace(/url\(["']?\/(?!\/|rsd\/)/gi, 'url("/rsd/');
-
       return new Response(html, {
-        status: response.status,
-        statusText: response.statusText,
+        status: 200,
         headers: responseHeaders,
       });
     }

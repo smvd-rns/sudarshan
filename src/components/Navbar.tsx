@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Settings, Monitor, UserCheck, CalendarDays, BookOpen, MoreHorizontal, X, User, Shield, Users, Plane, Bell, Music, Download, ExternalLink, Film, ShoppingCart } from "lucide-react";
+import { LogOut, Settings, Monitor, UserCheck, CalendarDays, BookOpen, MoreHorizontal, X, User, Shield, Users, Plane, Bell, Music, Download, ExternalLink, Film, ShoppingCart, Building2, Globe } from "lucide-react";
 import ProfileEdit from "./ProfileEdit";
 import { supabase } from "@/lib/supabase";
 import { useProfile } from "@/hooks/useProfile";
@@ -70,6 +70,8 @@ export default function Navbar() {
   const isStore = pathname.startsWith('/store');
   const isAttendance = pathname === "/attendance";
   const isIdkt = pathname === "/iskcon-desire-tree";
+  const isStrategicErp = pathname === "/strategic-erp";
+  const isRadheshyamDas = pathname === "/radheshyam-das";
 
   if (pathname === "/login" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request")) {
     return null;
@@ -180,6 +182,26 @@ export default function Navbar() {
                       <Bell className="w-4 h-4" />
                       <span className="text-[10px] font-black uppercase tracking-widest flex-1">Notifications</span>
                       <div className={`w-1 h-1 rounded-full bg-purple-500 ${pathname === '/notifications' ? 'opacity-100' : 'opacity-0'}`} />
+                    </NextLink>
+
+                    <NextLink 
+                      href="/strategic-erp" 
+                      onClick={() => setShowDesktopMore(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${isStrategicErp ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}
+                    >
+                      <Building2 className={`w-4 h-4 ${isStrategicErp ? 'text-blue-600' : 'text-slate-400'}`} />
+                      <span className="text-[10px] font-black uppercase tracking-widest flex-1">Strategic ERP</span>
+                      <div className={`w-1 h-1 rounded-full bg-blue-500 ${isStrategicErp ? 'opacity-100' : 'opacity-0'}`} />
+                    </NextLink>
+
+                    <NextLink 
+                      href="/radheshyam-das" 
+                      onClick={() => setShowDesktopMore(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${isRadheshyamDas ? 'bg-orange-50 text-orange-700' : 'hover:bg-slate-50 text-slate-600'}`}
+                    >
+                      <Globe className={`w-4 h-4 ${isRadheshyamDas ? 'text-orange-600' : 'text-slate-400'}`} />
+                      <span className="text-[10px] font-black uppercase tracking-widest flex-1">Radheshyam Das</span>
+                      <div className={`w-1 h-1 rounded-full bg-orange-500 ${isRadheshyamDas ? 'opacity-100' : 'opacity-0'}`} />
                     </NextLink>
 
                     {isBcdb && (
@@ -368,7 +390,7 @@ export default function Navbar() {
             onClick={() => setShowMoreMenu(false)}
           />
           <div className="absolute left-4 right-4 bg-white/95 backdrop-blur-3xl rounded-[2rem] border border-slate-200/50 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)" }}>
-            <div className="flex flex-col py-2">
+            <div className="flex flex-col py-2 max-h-[70vh] overflow-y-auto">
               {canOpenAttendance && (
                 <NextLink 
                   href="/attendance" 
@@ -390,6 +412,26 @@ export default function Navbar() {
                 <Bell className={`w-4 h-4 ${pathname === '/notifications' ? 'text-purple-600' : 'text-slate-400'}`} />
                 <span className={`text-[11px] font-black uppercase tracking-widest flex-1 ${pathname === '/notifications' ? 'text-purple-900' : 'text-slate-600'}`}>Notifications</span>
                 <div className={`w-1.5 h-1.5 rounded-full bg-purple-500 ${pathname === '/notifications' ? 'opacity-100' : 'opacity-0'}`} />
+              </NextLink>
+
+              <NextLink 
+                href="/strategic-erp" 
+                onClick={() => setShowMoreMenu(false)}
+                className={`flex items-center gap-4 px-6 py-3.5 transition-all ${isStrategicErp ? 'bg-blue-50/50 text-blue-900 border-l-4 border-blue-600' : 'hover:bg-slate-50'}`}
+              >
+                <Building2 className={`w-4 h-4 ${isStrategicErp ? 'text-blue-600' : 'text-slate-400'}`} />
+                <span className={`text-[11px] font-black uppercase tracking-widest flex-1 ${isStrategicErp ? 'text-blue-900' : 'text-slate-600'}`}>Strategic ERP</span>
+                <div className={`w-1.5 h-1.5 rounded-full bg-blue-600 ${isStrategicErp ? 'opacity-100' : 'opacity-0'}`} />
+              </NextLink>
+
+              <NextLink 
+                href="/radheshyam-das" 
+                onClick={() => setShowMoreMenu(false)}
+                className={`flex items-center gap-4 px-6 py-3.5 transition-all ${isRadheshyamDas ? 'bg-orange-50/50 text-orange-900 border-l-4 border-orange-600' : 'hover:bg-slate-50'}`}
+              >
+                <Globe className={`w-4 h-4 ${isRadheshyamDas ? 'text-orange-600' : 'text-slate-400'}`} />
+                <span className={`text-[11px] font-black uppercase tracking-widest flex-1 ${isRadheshyamDas ? 'text-orange-900' : 'text-slate-600'}`}>Radheshyam Das</span>
+                <div className={`w-1.5 h-1.5 rounded-full bg-orange-600 ${isRadheshyamDas ? 'opacity-100' : 'opacity-0'}`} />
               </NextLink>
 
               {isBcdb && (
