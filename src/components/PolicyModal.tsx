@@ -57,11 +57,9 @@ export default function PolicyModal() {
           const isCurrentOrigin = href.includes(window.location.host);
           const isYouTube = href.includes("youtube.com") || href.includes("youtu.be");
           const isDriveLink = href.includes("drive.google.com");
-          const isStrategicErp = href.includes("strategicerpcloud.com");
-          const isRsd = href.includes("radheshyamdas.com");
 
-          // Block external links or links opening in another tab (exclude whitelisted Drive links, Strategic ERP, and Radheshyam Das)
-          if (((isExternal && !isCurrentOrigin) || isYouTube || linkTarget === "_blank") && !isDriveLink && !isStrategicErp && !isRsd) {
+          // Block external links or links opening in another tab (exclude whitelisted Drive links)
+          if (((isExternal && !isCurrentOrigin) || isYouTube || linkTarget === "_blank") && !isDriveLink) {
             e.preventDefault();
             e.stopPropagation();
 
@@ -90,10 +88,8 @@ export default function PolicyModal() {
         const isYouTube = urlStr.includes("youtube.com") || urlStr.includes("youtu.be");
         const isBlankOrSystem = target === "_blank" || target === "_system";
         const isDriveLink = urlStr.includes("drive.google.com");
-        const isStrategicErp = urlStr.includes("strategicerpcloud.com");
-        const isRsd = urlStr.includes("radheshyamdas.com");
 
-        if (((isExternal && !isCurrentOrigin) || isYouTube || isBlankOrSystem) && !isDriveLink && !isStrategicErp && !isRsd) {
+        if (((isExternal && !isCurrentOrigin) || isYouTube || isBlankOrSystem) && !isDriveLink) {
           console.warn("[BLOCKED] window.open blocked on laptop view:", url);
           window.dispatchEvent(new CustomEvent("show-policy", {
             detail: {
@@ -148,7 +144,7 @@ export default function PolicyModal() {
     const handleVisibilityChange = () => {
       const timeSinceBlur = Date.now() - lastBlurTime;
       const activeEl = document.activeElement;
-      const isIframeActive = activeEl?.tagName === "IFRAME" && activeEl?.id !== "strategic-erp-iframe" && activeEl?.id !== "rsd-iframe";
+      const isIframeActive = activeEl?.tagName === "IFRAME";
 
       // If page became hidden within 300ms of a blur, and an iframe was active, a new tab was opened from it
       if (document.hidden && timeSinceBlur < 300 && lastBlurTime > 0 && isIframeActive) {

@@ -133,10 +133,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    if (pathname === "/strategic-erp" || pathname === "/radheshyam-das") {
-      setCheckingDb(false);
-      return;
-    }
     checkDbHealth();
   }, [pathname]);
 
@@ -203,7 +199,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   function recordUserVisit(userId: string) {
     if (typeof window === "undefined") return;
-    if (dbOffline || pathname === "/strategic-erp" || pathname === "/radheshyam-das") return;
+    if (dbOffline) return;
     
     try {
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
@@ -245,7 +241,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   function handleRedirect(currentSession: any) {
     if (checkingDb) return;
 
-    const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request") || pathname === "/strategic-erp" || pathname === "/radheshyam-das";
+    const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request");
     
     if (dbOffline) {
       if (pathname !== "/") {
@@ -287,12 +283,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request") || pathname === "/strategic-erp" || pathname === "/radheshyam-das";
-
-  // 0. Standalone public utility bypass (zero DB dependency)
-  if (pathname === "/strategic-erp" || pathname === "/radheshyam-das") {
-    return <>{children}</>;
-  }
+  const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/auth/callback" || pathname === "/prasadam-count" || pathname === "/register/bcdb" || pathname.startsWith("/store/quick-request");
 
   // 1. Loading States (Centralized)
   const isChecking = checkingDb || authLoading || (session && profileLoading && !dbOffline);
