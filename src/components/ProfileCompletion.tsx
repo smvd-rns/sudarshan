@@ -5,13 +5,14 @@ import { Loader2, AlertCircle, UserPlus } from "lucide-react";
 
 interface ProfileCompletionProps {
   session: any;
+  profile?: any;
   refreshProfile: () => void;
 }
 
-export default function ProfileCompletion({ session, refreshProfile }: ProfileCompletionProps) {
-  const [regName, setRegName] = useState("");
-  const [regMobile, setRegMobile] = useState("");
-  const [regTemple, setRegTemple] = useState("");
+export default function ProfileCompletion({ session, profile, refreshProfile }: ProfileCompletionProps) {
+  const [regName, setRegName] = useState(profile?.full_name || session?.user?.user_metadata?.full_name || "");
+  const [regMobile, setRegMobile] = useState(profile?.mobile || "");
+  const [regTemple, setRegTemple] = useState(profile?.temple || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState("");
 
@@ -27,9 +28,9 @@ export default function ProfileCompletion({ session, refreshProfile }: ProfileCo
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          full_name: regName,
-          mobile: regMobile,
-          temple: regTemple
+          full_name: regName.trim(),
+          mobile: regMobile.trim(),
+          temple: regTemple.trim()
         })
       });
       

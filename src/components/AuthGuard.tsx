@@ -79,8 +79,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // If we already have an active profile or session loaded, DB is verified online - skip query
-      if (profile || session) {
+      // If DB is already known to be offline, do not clear offline state
+      if (dbOffline) {
+        setCheckingDb(false);
+        return;
+      }
+
+      // If we already have an active profile verified and online, skip redundant query
+      if (profile && !profileError) {
         if (typeof window !== "undefined") {
           localStorage.setItem(CACHE_KEY, JSON.stringify({ status: "online", timestamp: Date.now() }));
         }
@@ -136,16 +142,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     checkDbHealth();
   }, [pathname]);
 
-  // Reactive sync: when profile or session is available, confirm DB is online without querying again
+  // Reactive sync: when profile is loaded without errors, confirm DB is online
   useEffect(() => {
-    if (profile || session) {
+    if (profile && !profileError && !dbOffline) {
       setDbOffline(false);
       setCheckingDb(false);
       if (typeof window !== "undefined") {
         localStorage.setItem("db_health_status", JSON.stringify({ status: "online", timestamp: Date.now() }));
       }
     }
-  }, [profile, session]);
+  }, [profile, profileError, dbOffline]);
 
   // Reactive fail-safe: if profile query fails ONLY due to genuine network error, trigger offline mode
   useEffect(() => {
@@ -302,13 +308,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // 3. Profile Completion Requirement
-  const isProfileComplete = profile?.full_name && profile?.mobile && profile?.temple;
-  if (session && profile && !isProfileComplete && !isPublicRoute) {
-    return <ProfileCompletion session={session} refreshProfile={refreshProfile} />;
-  }
-
-  // 4. Offline Mode Prompt
+  // 3. Offline Mode Prompt
   if (dbOffline && !offlineAcknowledged) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-slate-50 px-4">
@@ -339,6 +339,13 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // 4. Profile Completion Requirement (only when DB is online and not on auth/registration flow)
+  const isProfileComplete = profile?.full_name && profile?.mobile && profile?.temple;
+  const isAuthExemptRoute = pathname === "/login" || pathname === "/auth/callback" || pathname === "/register/bcdb";
+  if (session && profile && !isProfileComplete && !dbOffline && !isAuthExemptRoute) {
+    return <ProfileCompletion session={session} profile={profile} refreshProfile={refreshProfile} />;
   }
 
   return (

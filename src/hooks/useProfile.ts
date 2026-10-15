@@ -4,35 +4,66 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 const BCDB_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-const PROFILE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache for profile
+const PROFILE_CACHE_TTL_MS = 30 * 60 * 60 * 1000; // 30 hours cache for profile
 const bcdbCheckCache = new Map<string, { isBcdb: boolean; at: number }>();
 
 let globalProfileCache: { userId: string; profile: any; isBcdb: boolean; at: number } | null = null;
 let pendingProfilePromises = new Map<string, Promise<{ profile: any; isBcdb: boolean }>>();
 
+function saveProfileCache(userId: string, profile: any, isBcdb: boolean) {
+  const cachedObj = { userId, profile, isBcdb, at: Date.now() };
+  globalProfileCache = cachedObj;
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(`cached_user_profile_${userId}`, JSON.stringify(cachedObj));
+    } catch (_) {}
+  }
+}
+
+function loadProfileCache(userId: string) {
+  if (globalProfileCache && globalProfileCache.userId === userId) {
+    return globalProfileCache;
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(`cached_user_profile_${userId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.userId === userId && parsed?.profile) {
+          globalProfileCache = parsed;
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
 export function useProfile(session: any) {
   const currentUserId = session?.user?.id;
   const now = Date.now();
+  const initialCache = currentUserId ? loadProfileCache(currentUserId) : null;
   const isCached = !!(
-    globalProfileCache &&
-    globalProfileCache.userId === currentUserId &&
-    now - globalProfileCache.at < PROFILE_CACHE_TTL_MS
+    initialCache &&
+    initialCache.userId === currentUserId &&
+    now - initialCache.at < PROFILE_CACHE_TTL_MS
   );
 
-  const [profile, setProfile] = useState<any>(isCached ? globalProfileCache!.profile : null);
-  const [isBcdb, setIsBcdb] = useState(isCached ? globalProfileCache!.isBcdb : false);
+  const [profile, setProfile] = useState<any>(initialCache?.profile || null);
+  const [isBcdb, setIsBcdb] = useState(initialCache?.isBcdb || false);
 
-  const [loading, setLoading] = useState(!isCached);
+  const [loading, setLoading] = useState(!isCached && !initialCache);
   const [error, setError] = useState<string | null>(null);
   const [isTimeout, setIsTimeout] = useState(false);
   const [lastCheckedId, setLastCheckedId] = useState<string | null>(isCached ? currentUserId : null);
 
   const fetchProfile = useCallback(async (userId: string, force = false) => {
     const checkNow = Date.now();
+    const activeCache = loadProfileCache(userId);
     const cacheValid = !!(
-      globalProfileCache &&
-      globalProfileCache.userId === userId &&
-      checkNow - globalProfileCache.at < PROFILE_CACHE_TTL_MS
+      activeCache &&
+      activeCache.userId === userId &&
+      checkNow - activeCache.at < PROFILE_CACHE_TTL_MS
     );
 
     if (userId === lastCheckedId && !force && cacheValid) {
@@ -130,8 +161,7 @@ export function useProfile(session: any) {
         } else {
           finalBcdb = await checkBcdb(data.email || session?.user?.email, data.roles || data.role);
         }
-        const cachedObj = { userId, profile: data, isBcdb: finalBcdb, at: Date.now() };
-        globalProfileCache = cachedObj;
+        saveProfileCache(userId, data, finalBcdb);
         return { profile: data, isBcdb: finalBcdb };
       }
 
@@ -157,8 +187,7 @@ export function useProfile(session: any) {
           
           setProfile(updatedProfile);
           finalBcdb = await checkBcdb(updatedProfile.email || session?.user?.email, updatedProfile.roles || updatedProfile.role);
-          const cachedObj = { userId, profile: updatedProfile, isBcdb: finalBcdb, at: Date.now() };
-          globalProfileCache = cachedObj;
+          saveProfileCache(userId, updatedProfile, finalBcdb);
           return { profile: updatedProfile, isBcdb: finalBcdb };
         }
       }
@@ -179,8 +208,7 @@ export function useProfile(session: any) {
       if (createError) throw createError;
       setProfile(newProfile);
       finalBcdb = await checkBcdb(newProfile.email || session?.user?.email, newProfile.roles || newProfile.role);
-      const cachedObj = { userId, profile: newProfile, isBcdb: finalBcdb, at: Date.now() };
-      globalProfileCache = cachedObj;
+      saveProfileCache(userId, newProfile, finalBcdb);
       return { profile: newProfile, isBcdb: finalBcdb };
     })();
 
@@ -192,6 +220,12 @@ export function useProfile(session: any) {
       return result;
     } catch (err: any) {
       console.error("Profile Hook Error:", err.message || err);
+      // Fallback to locally cached profile when offline or network fails
+      const fallbackCache = loadProfileCache(userId);
+      if (fallbackCache?.profile) {
+        setProfile(fallbackCache.profile);
+        setIsBcdb(fallbackCache.isBcdb);
+      }
       setError(err.message || "Failed to load profile");
     } finally {
       pendingProfilePromises.delete(userId);
@@ -213,7 +247,7 @@ export function useProfile(session: any) {
 
   const activeProfile = (profile && profile.id === session?.user?.id) ? profile : (isCached ? globalProfileCache?.profile : null);
   const activeIsBcdb = (profile && profile.id === session?.user?.id) ? isBcdb : (isCached ? globalProfileCache?.isBcdb || false : false);
-  const derivedLoading = !isCached && (loading || (!!session?.user?.id && lastCheckedId !== session.user.id));
+  const derivedLoading = !activeProfile && (loading || (!!session?.user?.id && lastCheckedId !== session.user.id));
 
   const uRoles = Array.isArray(activeProfile?.roles) 
     ? activeProfile.roles 
