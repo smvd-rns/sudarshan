@@ -28,6 +28,23 @@ async function checkIsAdmin(userId: string) {
   return uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
 }
 
+async function fetchAllBatches<T>(
+  fetchBatch: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  const batchSize = 1000;
+  while (true) {
+    const { data, error } = await fetchBatch(from, from + batchSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+  return all;
+}
+
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get("Authorization");
@@ -47,44 +64,77 @@ export async function GET(request: Request) {
     let merged = [];
 
     if (fetchAllProfiles) {
-      // 1. Fetch main DB profiles (For Add User Modal)
-      const { data: profiles, error: pError } = await supabaseAdmin!
-        .from('profiles')
-        .select('id, email, full_name, mobile, temple')
-        .order('created_at', { ascending: false });
+      // 1. Fetch ALL main DB profiles in batches to avoid Supabase PostgREST 1000-row limit
+      const profiles = await fetchAllBatches<any>((from, to) =>
+        supabaseAdmin!
+          .from('profiles')
+          .select('id, email, full_name, mobile, temple')
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      );
 
-      if (pError) return NextResponse.json({ error: pError.message }, { status: 500 });
+      // 2. Fetch ALL store_users in batches to avoid 1000-row limit
+      const storeUsers = await fetchAllBatches<any>((from, to) =>
+        supabaseIdktAdmin!
+          .from('store_users')
+          .select('id, email, full_name, mobile, temple, store_access_level, is_store_admin')
+          .range(from, to)
+      );
 
-      // Fetch all store_users to map access and edited profile details
-      const { data: storeUsers } = await supabaseIdktAdmin!
-        .from('store_users')
-        .select('id, email, full_name, mobile, temple, store_access_level, is_store_admin');
+      const userMap = new Map();
 
-      const storeUserMap = new Map();
-      if (storeUsers) {
-        storeUsers.forEach((su: any) => storeUserMap.set(su.id, su));
-      }
-
-      merged = (profiles || []).map((p: any) => {
-        const su = storeUserMap.get(p.id) || {};
-        return {
+      // Seed with profiles
+      (profiles || []).forEach((p: any) => {
+        userMap.set(p.id, {
           id: p.id,
-          email: su.email || p.email || "",
-          full_name: su.full_name || p.full_name || "N/A",
-          mobile: su.mobile || p.mobile || "N/A",
-          temple: su.temple || p.temple || "N/A",
-          store_access_level: su.store_access_level || 'none',
-          is_store_admin: !!su.is_store_admin
-        };
+          email: p.email || "",
+          full_name: p.full_name || "N/A",
+          mobile: p.mobile || "N/A",
+          temple: p.temple || "N/A",
+          store_access_level: 'none',
+          is_store_admin: false
+        });
       });
+
+      // Merge storeUsers (including those only present in store_users or beyond profiles limit)
+      (storeUsers || []).forEach((su: any) => {
+        const existing = userMap.get(su.id);
+        const getValidVal = (val1: string, val2: string) => {
+          if (val1 && val1.trim() !== "" && val1.trim().toUpperCase() !== "N/A") return val1.trim();
+          if (val2 && val2.trim() !== "" && val2.trim().toUpperCase() !== "N/A") return val2.trim();
+          return "N/A";
+        };
+
+        if (existing) {
+          userMap.set(su.id, {
+            ...existing,
+            email: su.email || existing.email || "",
+            full_name: getValidVal(su.full_name, existing.full_name),
+            mobile: getValidVal(su.mobile, existing.mobile),
+            temple: getValidVal(su.temple, existing.temple),
+            store_access_level: su.store_access_level || 'none',
+            is_store_admin: !!su.is_store_admin
+          });
+        } else {
+          userMap.set(su.id, {
+            id: su.id,
+            email: su.email || "",
+            full_name: su.full_name || "N/A",
+            mobile: su.mobile || "N/A",
+            temple: su.temple || "N/A",
+            store_access_level: su.store_access_level || 'none',
+            is_store_admin: !!su.is_store_admin
+          });
+        }
+      });
+
+      merged = Array.from(userMap.values());
 
     } else {
       // 2. Default flow: Fetch approved users from IDKT DB store_users and merge live mobile & temple from Main DB
-      const { data: storeUsers, error: sError } = await supabaseIdktAdmin!
-        .from('store_users')
-        .select('*');
-
-      if (sError) return NextResponse.json({ error: sError.message }, { status: 500 });
+      const storeUsers = await fetchAllBatches<any>((from, to) =>
+        supabaseIdktAdmin!.from('store_users').select('*').range(from, to)
+      );
 
       // Filter approved
       const approvedUsers = (storeUsers || []).filter((su: any) => 
@@ -97,12 +147,16 @@ export async function GET(request: Request) {
       const approvedIds = approvedUsers.map((su: any) => su.id);
       let profileMap = new Map();
       if (approvedIds.length > 0) {
-        const { data: mainProfiles } = await supabaseAdmin!
-          .from('profiles')
-          .select('id, full_name, mobile, temple')
-          .in('id', approvedIds);
+        // Chunk queries to handle any number of approved IDs safely
+        for (let i = 0; i < approvedIds.length; i += 500) {
+          const chunk = approvedIds.slice(i, i + 500);
+          const { data: mainProfiles } = await supabaseAdmin!
+            .from('profiles')
+            .select('id, full_name, mobile, temple')
+            .in('id', chunk);
 
-        (mainProfiles || []).forEach((p: any) => profileMap.set(p.id, p));
+          (mainProfiles || []).forEach((p: any) => profileMap.set(p.id, p));
+        }
       }
 
       merged = approvedUsers.map((su: any) => {
