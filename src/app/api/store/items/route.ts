@@ -4,14 +4,24 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { getUserFromToken } from '@/lib/auth-utils';
 import { logStoreActivity } from '@/lib/store-logger';
 
+const adminCheckCache = new Map<string, { isAdmin: boolean; timestamp: number }>();
+
 async function checkIsAdmin(userId: string) {
+  const cached = adminCheckCache.get(userId);
+  if (cached && (Date.now() - cached.timestamp < 60000)) {
+    return cached.isAdmin;
+  }
+
   const { data: storeUser } = await supabaseIdktAdmin!
     .from('store_users')
     .select('is_store_admin')
     .eq('id', userId)
     .maybeSingle();
 
-  if (storeUser?.is_store_admin) return true;
+  if (storeUser?.is_store_admin) {
+    adminCheckCache.set(userId, { isAdmin: true, timestamp: Date.now() });
+    return true;
+  }
 
   const { data: profile } = await supabaseAdmin!
     .from('profiles')
@@ -24,8 +34,9 @@ async function checkIsAdmin(userId: string) {
     : [profile?.role].filter((r: any) => r != null);
 
   const uRoles = rawRoles.map((r: any) => Number(r)).filter((r: any) => !isNaN(r));
-
-  return uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
+  const isAdmin = uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
+  adminCheckCache.set(userId, { isAdmin, timestamp: Date.now() });
+  return isAdmin;
 }
 
 export async function GET(request: Request) {
@@ -178,14 +189,14 @@ export async function POST(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    await logStoreActivity({
+    logStoreActivity({
       user_id: user.id,
       user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
       user_email: user.email || '',
       action: 'ITEM_CREATED',
       details: `Created store item "${data?.item_name || item_name}" (Code: ${item_code}, Price: ₹${cost}).`,
       metadata: { item_id: data?.id, item_code, item_name, cost, category }
-    });
+    }).catch(() => {});
 
     return NextResponse.json(data);
   } catch (err) {
@@ -247,14 +258,14 @@ export async function PUT(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    await logStoreActivity({
+    logStoreActivity({
       user_id: user.id,
       user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
       user_email: user.email || '',
       action: 'ITEM_UPDATED',
       details: `Updated store item "${data?.item_name || item_name}" (Code: ${item_code}, Price: ₹${cost}).`,
       metadata: { item_id: id, item_code, item_name, cost, category }
-    });
+    }).catch(() => {});
 
     return NextResponse.json(data);
   } catch (err) {
@@ -287,14 +298,14 @@ export async function DELETE(request: Request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    await logStoreActivity({
+    logStoreActivity({
       user_id: user.id,
       user_name: (user as any).user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Admin'),
       user_email: user.email || '',
       action: 'ITEM_DELETED',
       details: `Deleted store item ID: ${id}.`,
       metadata: { item_id: id }
-    });
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (err) {

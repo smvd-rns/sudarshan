@@ -186,10 +186,15 @@ export default function StoreItemsAdmin() {
     });
 
     if (res.ok) {
+      const createdItem = await res.json().catch(() => null);
       setNewItemName("");
       setVariantRows([{ brand: "", size: "", cost: "", is_available: true }]);
       setIsAddFormOpen(false);
-      fetchItems();
+      if (createdItem && createdItem.id) {
+        setItems(prev => [...prev, createdItem].sort((a, b) => (a.item_code || "").localeCompare(b.item_code || "")));
+      } else {
+        fetchItems();
+      }
     } else {
       const err = await res.json();
       alert("Error adding item: " + err.error);
@@ -269,8 +274,13 @@ export default function StoreItemsAdmin() {
     });
 
     if (res.ok) {
+      const updatedItem = await res.json().catch(() => null);
       setEditingItem(null);
-      fetchItems();
+      if (updatedItem && updatedItem.id) {
+        setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+      } else {
+        fetchItems();
+      }
     } else {
       const err = await res.json();
       alert("Error updating item: " + err.error);
@@ -336,7 +346,7 @@ export default function StoreItemsAdmin() {
       headers: { 'Authorization': `Bearer ${session.access_token}` }
     });
     if (res.ok) {
-      fetchItems();
+      setItems(prev => prev.filter(i => i.id !== id));
     } else {
       const err = await res.json();
       alert("Error deleting item: " + err.error);

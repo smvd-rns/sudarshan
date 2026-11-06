@@ -24,14 +24,41 @@ export interface StoreUser {
   can_access_admin_panel?: boolean;
 }
 
+const STORE_USER_CACHE_KEY = "samvardhan_store_user_v2";
+let memoryStoreUser: StoreUser | null = null;
+
+function getCachedStoreUser(): StoreUser | null {
+  if (memoryStoreUser) return memoryStoreUser;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STORE_USER_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.id) {
+        memoryStoreUser = parsed;
+        return parsed;
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export function useStoreAuth() {
-  const [storeUser, setStoreUser] = useState<StoreUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [storeUser, setStoreUser] = useState<StoreUser | null>(() => getCachedStoreUser());
+  const [loading, setLoading] = useState<boolean>(() => !getCachedStoreUser());
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
+
+    // Fast sync from cache
+    const cached = getCachedStoreUser();
+    if (cached) {
+      setStoreUser(cached);
+      setLoading(false);
+    }
+
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -41,7 +68,6 @@ export function useStoreAuth() {
         }
 
         const res = await fetch('/api/store/auth', {
-          cache: 'no-store',
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }
@@ -58,15 +84,26 @@ export function useStoreAuth() {
         const data = await res.json();
         if (mounted) {
           if (data.access && data.storeUser) {
+            memoryStoreUser = data.storeUser;
+            try {
+              localStorage.setItem(STORE_USER_CACHE_KEY, JSON.stringify(data.storeUser));
+            } catch {}
             setStoreUser(data.storeUser);
+            setError(null);
           } else {
             setError("You do not have access to the store module.");
+            try {
+              localStorage.removeItem(STORE_USER_CACHE_KEY);
+            } catch {}
+            memoryStoreUser = null;
           }
           setLoading(false);
         }
       } catch (err) {
         if (mounted) {
-          setError("Network error");
+          if (!cached) {
+            setError("Network error");
+          }
           setLoading(false);
         }
       }

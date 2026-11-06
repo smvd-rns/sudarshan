@@ -370,9 +370,13 @@ export default function StoreRequest() {
 
     try {
       if (requestForMode === "guest") {
-        // Guest mode: first item creates the guest user, rest reference the new guest user ID
-        const first = cartItems[0];
-        const resFirst = await fetch('/api/store/requests', {
+        const itemsPayload = cartItems.map(item => ({
+          item_id: item.item_id,
+          quantity: item.quantity,
+          selected_variant: formatVariantPayload(item.selected_variant)
+        }));
+
+        const res = await fetch('/api/store/requests', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -383,71 +387,37 @@ export default function StoreRequest() {
             guest_name: guestName.trim(),
             guest_temple: guestTemple.trim() || "Guest Temple",
             guest_mobile: guestMobile.trim() || "N/A",
-            item_id: first.item_id,
-            quantity: first.quantity,
-            selected_variant: formatVariantPayload(first.selected_variant)
+            items: itemsPayload
           })
         });
 
-        if (!resFirst.ok) {
-          const err = await resFirst.json().catch(() => ({}));
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
           throw new Error(err.error || "Failed to submit request for guest");
         }
-
-        const firstData = await resFirst.json();
-        const createdGuestId = firstData.user_id;
-
-        if (cartItems.length > 1 && createdGuestId) {
-          const remaining = cartItems.slice(1);
-          const remResults = await Promise.all(
-            remaining.map(item =>
-              fetch('/api/store/requests', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({
-                  target_user_id: createdGuestId,
-                  item_id: item.item_id,
-                  quantity: item.quantity,
-                  selected_variant: formatVariantPayload(item.selected_variant)
-                })
-              })
-            )
-          );
-
-          const failed = remResults.filter(r => !r.ok);
-          if (failed.length > 0) {
-            throw new Error(`${failed.length} item(s) failed to submit.`);
-          }
-        }
       } else {
-        // Self mode or Registered User mode
         const targetUserId = requestForMode === "registered" ? selectedTargetUserId : undefined;
+        const itemsPayload = cartItems.map(item => ({
+          item_id: item.item_id,
+          quantity: item.quantity,
+          selected_variant: formatVariantPayload(item.selected_variant)
+        }));
 
-        const results = await Promise.all(
-          cartItems.map(item =>
-            fetch('/api/store/requests', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`
-              },
-              body: JSON.stringify({
-                target_user_id: targetUserId,
-                item_id: item.item_id,
-                quantity: item.quantity,
-                selected_variant: formatVariantPayload(item.selected_variant)
-              })
-            })
-          )
-        );
+        const res = await fetch('/api/store/requests', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            target_user_id: targetUserId,
+            items: itemsPayload
+          })
+        });
 
-        const failed = results.filter(r => !r.ok);
-        if (failed.length > 0) {
-          const errTexts = await Promise.all(failed.map(async r => (await r.json().catch(() => ({}))).error || "Failed"));
-          throw new Error(`Failed to submit ${failed.length} item(s): ` + errTexts.join(", "));
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || "Failed to submit request");
         }
       }
 

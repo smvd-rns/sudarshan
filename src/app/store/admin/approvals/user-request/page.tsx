@@ -351,35 +351,34 @@ export default function CreateUserRequestPage() {
 
     try {
       const token = session.access_token;
-      const results = await Promise.all(
-        cartItems.map(item =>
-          fetch("/api/store/requests", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              target_user_id: selectedUserId,
-              item_id: item.item_id,
-              quantity: item.quantity,
-              request_date: requestDate || undefined,
-              auto_approve: true,
-              selected_variant: JSON.stringify({
-                variant: item.selected_variant || "",
-                snapshot_item_name: item.item_name,
-                snapshot_item_code: item.item_code,
-                snapshot_cost: item.unit_cost,
-                source: "Added by Manager",
-                approved_by: storeUser?.full_name || storeUser?.email || "Admin"
-              })
-            })
-          })
-        )
-      );
+      const itemsPayload = cartItems.map(item => ({
+        item_id: item.item_id,
+        quantity: item.quantity,
+        selected_variant: JSON.stringify({
+          variant: item.selected_variant || "",
+          snapshot_item_name: item.item_name,
+          snapshot_item_code: item.item_code,
+          snapshot_cost: item.unit_cost,
+          source: "Added by Manager",
+          approved_by: storeUser?.full_name || storeUser?.email || "Admin"
+        })
+      }));
 
-      const failedResults = results.filter(r => !r.ok);
-      if (failedResults.length === 0) {
+      const res = await fetch("/api/store/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          target_user_id: selectedUserId,
+          request_date: requestDate || undefined,
+          auto_approve: true,
+          items: itemsPayload
+        })
+      });
+
+      if (res.ok) {
         setSuccessMsg(
           `Successfully created & approved request for ${cartItems.length} item(s)!`
         );
@@ -387,18 +386,8 @@ export default function CreateUserRequestPage() {
           router.push("/store/admin/approvals");
         }, 1200);
       } else {
-        const errors = await Promise.all(
-          failedResults.map(async r => {
-            try {
-              return (await r.json()).error;
-            } catch {
-              return "Failed";
-            }
-          })
-        );
-        setErrorMsg(
-          `Failed to submit ${failedResults.length} request(s): ` + errors.join(", ")
-        );
+        const err = await res.json().catch(() => ({}));
+        setErrorMsg(err.error || "Failed to submit requests");
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to submit request.");

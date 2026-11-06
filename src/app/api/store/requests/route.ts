@@ -5,14 +5,24 @@ import { getUserFromToken } from '@/lib/auth-utils';
 import { getVariantCost } from '@/lib/store-variant-utils';
 import { logStoreActivity } from '@/lib/store-logger';
 
+const adminCheckCache = new Map<string, { isAdmin: boolean; timestamp: number }>();
+
 async function checkIsAdmin(userId: string) {
+  const cached = adminCheckCache.get(userId);
+  if (cached && (Date.now() - cached.timestamp < 60000)) {
+    return cached.isAdmin;
+  }
+
   const { data: storeUser } = await supabaseIdktAdmin!
     .from('store_users')
     .select('is_store_admin')
     .eq('id', userId)
     .maybeSingle();
 
-  if (storeUser?.is_store_admin) return true;
+  if (storeUser?.is_store_admin) {
+    adminCheckCache.set(userId, { isAdmin: true, timestamp: Date.now() });
+    return true;
+  }
 
   const { data: profile } = await supabaseAdmin!
     .from('profiles')
@@ -25,8 +35,9 @@ async function checkIsAdmin(userId: string) {
     : [profile?.role].filter((r: any) => r != null);
 
   const uRoles = rawRoles.map((r: any) => Number(r)).filter((r: any) => !isNaN(r));
-
-  return uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
+  const isAdmin = uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
+  adminCheckCache.set(userId, { isAdmin, timestamp: Date.now() });
+  return isAdmin;
 }
 
 export async function GET(request: Request) {
@@ -86,7 +97,7 @@ export async function POST(request: Request) {
     if (!supabaseIdktAdmin) return NextResponse.json({ error: "IDKT DB not configured" }, { status: 500 });
 
     const body = await request.json();
-    const { item_id, quantity, selected_variant, target_user_id, is_guest, guest_name, guest_temple, guest_mobile, request_date, auto_approve } = body;
+    const { item_id, quantity, selected_variant, target_user_id, is_guest, guest_name, guest_temple, guest_mobile, request_date, auto_approve, items } = body;
 
     let requestUserId = user.id;
     const isAdminUser = await checkIsAdmin(user.id);
@@ -124,6 +135,87 @@ export async function POST(request: Request) {
       } else if (target_user_id) {
         requestUserId = target_user_id;
       }
+    }
+
+    // Batch processing if items array is provided
+    if (items && Array.isArray(items) && items.length > 0) {
+      const requestedItemIds = items.map((i: any) => i.item_id).filter(Boolean);
+      const { data: storeItemsList } = await supabaseIdktAdmin!
+        .from('store_items')
+        .select('id, item_code, item_name, cost, variants')
+        .in('id', requestedItemIds);
+
+      const itemsMap = new Map();
+      (storeItemsList || []).forEach((si: any) => itemsMap.set(si.id, si));
+
+      const isAutoApprove = Boolean(auto_approve) && isAdminUser;
+      const initialStatus = isAutoApprove ? 'approved' : 'pending';
+
+      const insertPayloads = items.map((cartItem: any) => {
+        const storeItem = itemsMap.get(cartItem.item_id);
+        const rawVariant = cartItem.selected_variant || "";
+        let cleanVar = rawVariant;
+        let approvedBy = undefined;
+        let source = target_user_id ? "Added by Manager" : (is_guest ? "Guest Entry" : "Self Request");
+
+        if (typeof rawVariant === "string" && rawVariant.startsWith('{') && rawVariant.endsWith('}')) {
+          try {
+            const parsed = JSON.parse(rawVariant);
+            if (parsed && typeof parsed === "object") {
+              cleanVar = parsed.variant !== undefined ? parsed.variant : (parsed.label !== undefined ? parsed.label : rawVariant);
+              if (parsed.approved_by || parsed.approvedBy) approvedBy = parsed.approved_by || parsed.approvedBy;
+              if (parsed.source) source = parsed.source;
+            }
+          } catch (e) {}
+        }
+
+        const unitCost = storeItem ? getVariantCost(cleanVar, storeItem.variants, Number(storeItem.cost) || 0) : 0;
+        const variantPayload = JSON.stringify({
+          variant: cleanVar,
+          snapshot_item_name: storeItem?.item_name || "Item",
+          snapshot_item_code: storeItem?.item_code || "",
+          snapshot_cost: unitCost,
+          approved_by: approvedBy || (isAutoApprove ? (user.email || "Admin") : undefined),
+          source: source
+        });
+
+        const p: any = {
+          user_id: requestUserId,
+          item_id: cartItem.item_id,
+          quantity: Number(cartItem.quantity) || 1,
+          selected_variant: variantPayload,
+          status: initialStatus
+        };
+
+        if (request_date) {
+          const parsedDate = new Date(request_date);
+          if (!isNaN(parsedDate.getTime())) {
+            const now = new Date();
+            parsedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+            p.created_at = parsedDate.toISOString();
+          }
+        }
+        return p;
+      });
+
+      const { data: createdRows, error: insertError } = await supabaseIdktAdmin!
+        .from('store_requests')
+        .insert(insertPayloads)
+        .select(`
+          *,
+          store_items (item_code, item_name, cost, variants),
+          store_users (full_name, email, temple, store_access_level)
+        `);
+
+      if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+
+      logStoreActivity({
+        userId: user.id,
+        action: "CREATE_REQUEST_BATCH",
+        details: `Created batch of ${items.length} items for ${is_guest ? guest_name : 'user'}`
+      }).catch(() => {});
+
+      return NextResponse.json(createdRows);
     }
 
     // Look up store item for snapshotting name and price
@@ -221,7 +313,34 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, status, quantity, selected_variant, item_id } = body;
+    const { id, ids, status, quantity, selected_variant, item_id, approved_by } = body;
+
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      const updatePayload: any = { 
+        status: status || 'approved',
+        updated_at: new Date().toISOString() 
+      };
+
+      const { data, error } = await supabaseIdktAdmin!
+        .from('store_requests')
+        .update(updatePayload)
+        .in('id', ids)
+        .select(`
+          *,
+          store_items (item_code, item_name, cost, variants),
+          store_users (full_name, email, temple, store_access_level)
+        `);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      logStoreActivity({
+        userId: user.id,
+        action: status === 'approved' ? "BULK_APPROVE" : "BULK_UPDATE",
+        details: `${status === 'approved' ? 'Approved' : 'Updated'} ${ids.length} requests in bulk.`
+      }).catch(() => {});
+
+      return NextResponse.json({ success: true, count: ids.length, data });
+    }
 
     if (!id) return NextResponse.json({ error: "Missing request ID" }, { status: 400 });
 
@@ -305,7 +424,21 @@ export async function DELETE(request: Request) {
     
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+    const idsParam = searchParams.get('ids');
+    if (!id && !idsParam) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+
+    const isAdmin = await checkIsAdmin(user.id);
+
+    if (idsParam) {
+      const ids = idsParam.split(',').map(s => s.trim()).filter(Boolean);
+      let query = supabaseIdktAdmin!.from('store_requests').delete().in('id', ids);
+      if (!isAdmin) {
+        query = query.eq('user_id', user.id);
+      }
+      const { error } = await query;
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true, count: ids.length });
+    }
 
     // Fetch existing request to inspect status and details before deleting
     const { data: existingReq } = await supabaseIdktAdmin!
@@ -319,7 +452,6 @@ export async function DELETE(request: Request) {
       .maybeSingle();
 
     // Ensure they own it or are admin
-    const isAdmin = await checkIsAdmin(user.id);
     
     let query = supabaseIdktAdmin!.from('store_requests').delete().eq('id', id);
     if (!isAdmin) {

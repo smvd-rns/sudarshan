@@ -3,14 +3,24 @@ import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getUserFromToken } from '@/lib/auth-utils';
 
+const adminCheckCache = new Map<string, { isAdmin: boolean; timestamp: number }>();
+
 async function checkIsAdmin(userId: string) {
+  const cached = adminCheckCache.get(userId);
+  if (cached && (Date.now() - cached.timestamp < 60000)) {
+    return cached.isAdmin;
+  }
+
   const { data: storeUser } = await supabaseIdktAdmin!
     .from('store_users')
     .select('is_store_admin')
     .eq('id', userId)
     .maybeSingle();
 
-  if (storeUser?.is_store_admin) return true;
+  if (storeUser?.is_store_admin) {
+    adminCheckCache.set(userId, { isAdmin: true, timestamp: Date.now() });
+    return true;
+  }
 
   const { data: profile } = await supabaseAdmin!
     .from('profiles')
@@ -25,7 +35,9 @@ async function checkIsAdmin(userId: string) {
   const uRoles = rawRoles.map((r: any) => Number(r)).filter((r: any) => !isNaN(r));
 
   // Access allowed for Super Admin (1), Store Admin (8), and Store Manager (9)
-  return uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
+  const isAdmin = uRoles.includes(1) || uRoles.includes(8) || uRoles.includes(9);
+  adminCheckCache.set(userId, { isAdmin, timestamp: Date.now() });
+  return isAdmin;
 }
 
 async function fetchAllBatches<T>(

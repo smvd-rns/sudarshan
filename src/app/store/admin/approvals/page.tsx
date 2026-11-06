@@ -394,14 +394,42 @@ export default function StoreApprovals() {
 
   const fetchAllData = async (token: string) => {
     setLoading(true);
-    await Promise.all([
-      fetchPendingRequests(token),
-      fetchApprovedRequestsHistory(token),
-      fetchReimbursementsHistory(token),
-      fetchStoreItems(token),
-      fetchApprovedUsers(token)
-    ]);
-    setLoading(false);
+    try {
+      const [pendingRes, approvedRes, reimbRes, itemsRes, usersRes] = await Promise.all([
+        fetch('/api/store/requests?mode=pending', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/store/requests?mode=approved', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/store/reimbursements', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/store/items?all=true', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/store/admin/users', { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+
+      const [pendingData, approvedData, reimbData, itemsData, usersData] = await Promise.all([
+        pendingRes.ok ? pendingRes.json() : [],
+        approvedRes.ok ? approvedRes.json() : [],
+        reimbRes.ok ? reimbRes.json() : [],
+        itemsRes.ok ? itemsRes.json() : [],
+        usersRes.ok ? usersRes.json() : []
+      ]);
+
+      const enhancedData = (pendingData || []).map((req: any) => {
+        const userApproved = (approvedData || []).filter((a: any) => a.user_id === req.user_id && a.item_id === req.item_id);
+        const lastApproved = userApproved.length > 0 ? userApproved[0] : null;
+        return {
+          ...req,
+          lastIssuedDate: lastApproved?.created_at || null
+        };
+      });
+
+      setRequests(enhancedData);
+      setApprovedRequestsHistory(approvedData || []);
+      setReimbursementsHistory(reimbData || []);
+      setItems(itemsData || []);
+      setUsers(usersData || []);
+    } catch (err) {
+      console.error("Error loading approvals data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRefreshData = async () => {
@@ -409,13 +437,7 @@ export default function StoreApprovals() {
     try {
       const token = await getFreshToken();
       if (token) {
-        await Promise.all([
-          fetchPendingRequests(token),
-          fetchApprovedRequestsHistory(token),
-          fetchReimbursementsHistory(token),
-          fetchStoreItems(token),
-          fetchApprovedUsers(token)
-        ]);
+        await fetchAllData(token);
       }
     } catch (e) {
       console.error("Error refreshing store approvals data:", e);
@@ -897,47 +919,55 @@ export default function StoreApprovals() {
       const targetIds = [...selectedT1RequestIds];
       const managerName = currentManagerName;
 
-      for (const id of targetIds) {
-        if (action === 'approved') {
-          const targetReq = requests.find(r => r.id === id);
-          const rawVariant = targetReq?.selected_variant || "";
-          const cleanVar = parseVariantLabel(rawVariant);
-          const existingMeta = parseVariantMeta(rawVariant);
+      const prevRequests = [...requests];
+      const prevHistory = [...approvedRequestsHistory];
+      const targetItems = requests.filter(r => targetIds.includes(r.id));
 
-          const updatedVariantJSON = JSON.stringify({
-            variant: cleanVar,
-            snapshot_item_name: existingMeta.snapshotItemName || targetReq?.store_items?.item_name || "Item",
-            snapshot_item_code: existingMeta.snapshotItemCode || targetReq?.store_items?.item_code || "",
-            snapshot_cost: existingMeta.snapshotCost !== undefined ? existingMeta.snapshotCost : Number(targetReq?.store_items?.cost || 0),
-            approved_by: managerName,
-            source: existingMeta.source || (targetReq?.store_users?.full_name?.includes("(Guest)") ? 'Guest Entry' : 'Self Request')
-          });
-
-          await fetch('/api/store/requests', {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              id,
-              status: 'approved',
-              selected_variant: updatedVariantJSON
-            })
-          });
-        } else {
-          await fetch(`/api/store/requests?id=${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-        }
-      }
-
+      // Optimistic UI update: instantly update view
       setRequests(prev => prev.filter(r => !targetIds.includes(r.id)));
+      if (action === 'approved') {
+        const optimisticApprovedList = targetItems.map(item => ({
+          ...item,
+          status: 'approved' as const,
+          updated_at: new Date().toISOString()
+        }));
+        setApprovedRequestsHistory(prev => [...optimisticApprovedList, ...prev]);
+      }
       setSelectedT1RequestIds([]);
       setBulkConfirmModal(null);
+
       if (action === 'approved') {
-        fetchApprovedRequestsHistory(token);
+        const res = await fetch('/api/store/requests', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            ids: targetIds,
+            status: 'approved',
+            approved_by: managerName
+          })
+        });
+
+        if (!res.ok) {
+          setRequests(prevRequests);
+          setApprovedRequestsHistory(prevHistory);
+          const err = await res.json().catch(() => ({}));
+          alert("Error in bulk approve: " + (err.error || "Server error"));
+        }
+      } else {
+        const res = await fetch(`/api/store/requests?ids=${targetIds.join(',')}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+          setRequests(prevRequests);
+          setApprovedRequestsHistory(prevHistory);
+          const err = await res.json().catch(() => ({}));
+          alert("Error in bulk reject: " + (err.error || "Server error"));
+        }
       }
     } catch (err: any) {
       alert(err.message || "An error occurred during bulk operation");
@@ -1197,9 +1227,18 @@ export default function StoreApprovals() {
       return;
     }
     setActionLoading(id);
+
+    const prevRequests = [...requests];
+    const prevHistory = [...approvedRequestsHistory];
+    const targetReq = requests.find(r => r.id === id);
+
+    // Optimistic UI: remove from pending immediately
+    setRequests(prev => prev.filter(r => r.id !== id));
+    if (action === 'approved' && targetReq) {
+      setApprovedRequestsHistory(prev => [{ ...targetReq, status: 'approved' as const, updated_at: new Date().toISOString() }, ...prev]);
+    }
     
     if (action === 'approved') {
-      const targetReq = requests.find(r => r.id === id);
       const managerName = currentManagerName;
 
       const rawVariant = targetReq?.selected_variant || "";
@@ -1215,36 +1254,47 @@ export default function StoreApprovals() {
         source: existingMeta.source || (targetReq?.store_users?.full_name?.includes("(Guest)") ? 'Guest Entry' : 'Self Request')
       });
 
-      const res = await fetch('/api/store/requests', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          id,
-          status: 'approved',
-          selected_variant: updatedVariantJSON
-        })
-      });
+      try {
+        const res = await fetch('/api/store/requests', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            id,
+            status: 'approved',
+            selected_variant: updatedVariantJSON
+          })
+        });
 
-      if (res.ok) {
-        setRequests(prev => prev.filter(r => r.id !== id));
-        fetchApprovedRequestsHistory(token);
-      } else {
-        const err = await res.json().catch(() => ({}));
-        alert("Error approving request: " + (err.error || "Server error"));
+        if (!res.ok) {
+          setRequests(prevRequests);
+          setApprovedRequestsHistory(prevHistory);
+          const err = await res.json().catch(() => ({}));
+          alert("Error approving request: " + (err.error || "Server error"));
+        }
+      } catch (err: any) {
+        setRequests(prevRequests);
+        setApprovedRequestsHistory(prevHistory);
+        alert("Network error: " + (err.message || "Failed to approve"));
       }
     } else {
-      const res = await fetch(`/api/store/requests?id=${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setRequests(prev => prev.filter(r => r.id !== id));
-      } else {
-        const err = await res.json().catch(() => ({}));
-        alert("Error rejecting request: " + (err.error || "Server error"));
+      try {
+        const res = await fetch(`/api/store/requests?id=${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          setRequests(prevRequests);
+          setApprovedRequestsHistory(prevHistory);
+          const err = await res.json().catch(() => ({}));
+          alert("Error rejecting request: " + (err.error || "Server error"));
+        }
+      } catch (err: any) {
+        setRequests(prevRequests);
+        setApprovedRequestsHistory(prevHistory);
+        alert("Network error: " + (err.message || "Failed to reject"));
       }
     }
     setActionLoading(null);

@@ -299,10 +299,20 @@ export default function CreateGuestRequestPage() {
 
     try {
       const token = session.access_token;
-      const firstItem = cartItems[0];
+      const itemsPayload = cartItems.map(item => ({
+        item_id: item.item_id,
+        quantity: item.quantity,
+        selected_variant: JSON.stringify({
+          variant: item.selected_variant || "",
+          snapshot_item_name: item.item_name,
+          snapshot_item_code: item.item_code,
+          snapshot_cost: item.unit_cost,
+          source: "Guest Entry",
+          approved_by: storeUser?.full_name || storeUser?.email || "Admin"
+        })
+      }));
 
-      // Submit first item to create guest user record & request
-      const resFirst = await fetch("/api/store/requests", {
+      const res = await fetch("/api/store/requests", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -313,60 +323,17 @@ export default function CreateGuestRequestPage() {
           guest_name: guestName.trim(),
           guest_temple: guestTemple.trim() || "Guest Temple",
           guest_mobile: guestMobile.trim() || "N/A",
-          item_id: firstItem.item_id,
-          quantity: firstItem.quantity,
           request_date: requestDate || undefined,
           auto_approve: true,
-          selected_variant: JSON.stringify({
-            variant: firstItem.selected_variant || "",
-            snapshot_item_name: firstItem.item_name,
-            snapshot_item_code: firstItem.item_code,
-            snapshot_cost: firstItem.unit_cost,
-            source: "Guest Entry",
-            approved_by: storeUser?.full_name || storeUser?.email || "Admin"
-          })
+          items: itemsPayload
         })
       });
 
-      if (!resFirst.ok) {
-        const err = await resFirst.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
         setErrorMsg("Error creating guest request: " + (err.error || "Failed to create"));
         setIsSubmitting(false);
         return;
-      }
-
-      const firstData = await resFirst.json();
-      const guestUserId = firstData.user_id;
-
-      // Submit remaining items using generated guestUserId
-      if (cartItems.length > 1 && guestUserId) {
-        const remainingItems = cartItems.slice(1);
-        await Promise.all(
-          remainingItems.map(item =>
-            fetch("/api/store/requests", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                target_user_id: guestUserId,
-                item_id: item.item_id,
-                quantity: item.quantity,
-                request_date: requestDate || undefined,
-                auto_approve: true,
-                selected_variant: JSON.stringify({
-                  variant: item.selected_variant || "",
-                  snapshot_item_name: item.item_name,
-                  snapshot_item_code: item.item_code,
-                  snapshot_cost: item.unit_cost,
-                  source: "Guest Entry",
-                  approved_by: storeUser?.full_name || storeUser?.email || "Admin"
-                })
-              })
-            })
-          )
-        );
       }
 
       setSuccessMsg(

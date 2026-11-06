@@ -3,6 +3,9 @@ import { supabaseIdktAdmin } from '@/lib/supabaseIdkt';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getUserFromToken } from '@/lib/auth-utils';
 
+const storeAuthServerCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 30 * 1000; // 30 seconds
+
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get("Authorization");
@@ -11,6 +14,12 @@ export async function GET(request: Request) {
     const user = getUserFromToken(request);
     if (!user || !user.id || !user.email) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    // Check server memory cache for ultra-fast response
+    const cached = storeAuthServerCache.get(user.id);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+      return NextResponse.json(cached.data);
     }
 
     if (!supabaseIdktAdmin) {
@@ -135,7 +144,9 @@ export async function GET(request: Request) {
         can_access_admin_panel: isStoreAdminRole
       };
       const hasAccess = effectiveHasAdminAccess || (storeUser.store_access_level === 'general' || storeUser.store_access_level === 'internal' || storeUser.is_store_admin || storeUser.has_special_access);
-      return NextResponse.json({ storeUser: effectiveUser, access: !!hasAccess }, {
+      const resData2 = { storeUser: effectiveUser, access: !!hasAccess };
+      storeAuthServerCache.set(user.id, { data: resData2, timestamp: Date.now() });
+      return NextResponse.json(resData2, {
         headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' }
       });
     }
@@ -184,7 +195,9 @@ export async function GET(request: Request) {
     };
 
     const hasNewUserAccess = finalIsStoreAdmin || hasAnyStoreAdminAccess || (finalUser.store_access_level === 'general' || finalUser.store_access_level === 'internal' || finalUser.has_special_access);
-    return NextResponse.json({ storeUser: finalUser, access: !!hasNewUserAccess }, {
+    const resData3 = { storeUser: finalUser, access: !!hasNewUserAccess };
+    storeAuthServerCache.set(user.id, { data: resData3, timestamp: Date.now() });
+    return NextResponse.json(resData3, {
       headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' }
     });
 
